@@ -22,33 +22,64 @@ export function App() {
   const [evidenceService] = useState(() => new EvidenceService());
   const [storeState, setStoreState] = useState<TrustFabricStoreState | null>(null);
 
-  // Initialize from URL hash or default to overview dashboard
+  // Initialize from URL hash or localStorage, defaulting to landing page
   const [activeTab, setActiveTabState] = useState<NavTab>(() => {
-    const raw = window.location.hash.replace('#/', '').replace('#', '');
-    if (raw === 'landing') return 'landing';
+    const raw = window.location.hash.replace('#/', '').replace('#', '').trim();
+    if (raw === 'landing' || raw === '') return 'landing';
     if (raw === 'donations' || raw === 'donate') return 'donate';
+    if (raw === 'overview') return 'overview';
     if (raw === 'grants') return 'grants';
     if (raw === 'fundflows') return 'fundflows';
     if (raw === 'evidence') return 'evidence';
+    if (raw === 'findings') return 'findings';
+    if (raw === 'disbursement') return 'disbursement';
+    if (raw === 'redteam') return 'redteam';
     if (raw === 'audit') return 'audit';
-    return 'overview';
+    if (raw === 'donor') return 'donor';
+    if (raw === 'reports') return 'reports';
+    if (raw === 'settings') return 'settings';
+    
+    // Check localStorage fallback if hash is unrecognized
+    const saved = localStorage.getItem('trustfabric_active_tab') as NavTab | null;
+    return saved || 'landing';
   });
 
   const setActiveTab = (tab: NavTab) => {
     setActiveTabState(tab);
+    localStorage.setItem('trustfabric_active_tab', tab);
     window.location.hash = tab === 'landing' ? '#/' : `#/${tab}`;
   };
 
   useEffect(() => {
     const handleHashChange = () => {
-      const raw = window.location.hash.replace('#/', '').replace('#', '');
-      if (raw === 'donations' || raw === 'donate') setActiveTabState('donate');
-      else if (raw === 'overview') setActiveTabState('overview');
-      else if (raw === 'grants') setActiveTabState('grants');
-      else if (raw === 'fundflows') setActiveTabState('fundflows');
-      else if (raw === 'evidence') setActiveTabState('evidence');
-      else if (raw === 'audit') setActiveTabState('audit');
-      else if (raw === '' || raw === 'landing') setActiveTabState('landing');
+      const raw = window.location.hash.replace('#/', '').replace('#', '').trim();
+      if (raw === '' || raw === 'landing') {
+        setActiveTabState('landing');
+      } else if (raw === 'donations' || raw === 'donate') {
+        setActiveTabState('donate');
+      } else if (raw === 'overview') {
+        setActiveTabState('overview');
+      } else if (raw === 'grants') {
+        setActiveTabState('grants');
+      } else if (raw === 'fundflows') {
+        setActiveTabState('fundflows');
+      } else if (raw === 'evidence') {
+        setActiveTabState('evidence');
+      } else if (raw === 'findings') {
+        setActiveTabState('findings');
+      } else if (raw === 'disbursement') {
+        setActiveTabState('disbursement');
+      } else if (raw === 'redteam') {
+        setActiveTabState('redteam');
+      } else if (raw === 'audit') {
+        setActiveTabState('audit');
+      } else if (raw === 'donor') {
+        setActiveTabState('donor');
+      } else if (raw === 'reports') {
+        setActiveTabState('reports');
+      } else if (raw === 'settings') {
+        setActiveTabState('settings');
+      }
     };
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
