@@ -1,0 +1,74 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "public": {
+      ".read": true,
+      ".write": false,
+
+      "campaigns": {
+        "$campaignId": {
+          ".read": true,
+          ".write": false,
+          ".validate": "newData.hasChildren(['title', 'purpose', 'currency', 'totalRaisedPaise'])"
+        }
+      },
+
+      "donations": {
+        "$donationId": {
+          ".read": true,
+          ".write": false,
+          ".validate": "newData.hasChildren(['donationCode', 'campaignId', 'amountPaise', 'currency', 'status', 'provenance']) && !newData.hasChildren(['donorEmail', 'donorPhone', 'paymentSecret', 'cardDetails'])"
+        }
+      },
+
+      "fundFlowEvents": {
+        "$eventId": {
+          ".read": true,
+          ".write": false
+        }
+      }
+    },
+
+    "private": {
+      ".read": "auth != null && (auth.token.role === 'ADMIN' || auth.token.role === 'AUDITOR')",
+      ".write": false,
+
+      "paymentIntents": {
+        "$donationId": {
+          ".read": "auth != null && (auth.token.role === 'ADMIN' || auth.token.role === 'AUDITOR' || auth.uid === data.child('donorUid').val())",
+          ".write": false
+        }
+      },
+
+      "payments": {
+        "$donationId": {
+          ".read": "auth != null && (auth.token.role === 'ADMIN' || auth.token.role === 'AUDITOR')",
+          ".write": false
+        }
+      },
+
+      "webhookEvents": {
+        "$eventId": {
+          ".read": "auth != null && (auth.token.role === 'ADMIN' || auth.token.role === 'AUDITOR')",
+          ".write": false
+        }
+      },
+
+      "blockchainAnchors": {
+        "$donationId": {
+          ".read": true,
+          ".write": false
+        }
+      },
+
+      "auditEvents": {
+        "$eventId": {
+          ".read": "auth != null && (auth.token.role === 'ADMIN' || auth.token.role === 'AUDITOR')",
+          ".write": false
+        }
+      }
+    }
+  }
+}

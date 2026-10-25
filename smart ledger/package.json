@@ -1,0 +1,13 @@
+{
+  "name": "aidflow",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Transparent On-Chain Aid Distribution Protocol on Stellar/Soroban",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "start": "npm --prefix frontend run dev",
+    "sdk:build": "npm --prefix sdk run build",
+    "sdk:test": "npm --prefix sdk test"
+  }
+}

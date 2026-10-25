@@ -1,0 +1,71 @@
+{
+  "pack": "TrustFabric_PS42_Complete_Prompt_Pack",
+  "purpose": "Complete prompt/specification pack for CASCADE '26 Theme 4 Problem 4.2: The Black Hole Ledger",
+  "documents": [
+    {
+      "file": "01_SOURCE_REQUIREMENTS_TRACEABILITY.md",
+      "bytes": 10514,
+      "sha256": "68414edc2784685ec71480f1062e239e6be40ad663f412253d732371471d34d2"
+    },
+    {
+      "file": "02_PRD.md",
+      "bytes": 10981,
+      "sha256": "d5e4e0b0aa2f9ab834218c0e8e4145d53bf2e024040722331a2fdbc27912b1fc"
+    },
+    {
+      "file": "03_DRD.md",
+      "bytes": 9404,
+      "sha256": "1efee09e377c80bec98af684d118b988c90a7f26b0e2e57ab37592e68fb9e6e0"
+    },
+    {
+      "file": "04_TRD.md",
+      "bytes": 13475,
+      "sha256": "cd0f3ede99bec1e8cf6172cab99b676322a05e4f9d75f7cd6aedc1b2a1958476"
+    },
+    {
+      "file": "05_ARCHITECTURE_AND_TRUST_MODEL.md",
+      "bytes": 10784,
+      "sha256": "fd25c376872b86a3a32044695c153ad3285251045423a08ba2d55e368f0e1822"
+    },
+    {
+      "file": "06_ACCEPTANCE_AND_RED_TEAM_TESTS.md",
+      "bytes": 8201,
+      "sha256": "cfe188c6e95b5f12bc87f5219d9c060515d645d05180ac24507eafe424ec3bef"
+    },
+    {
+      "file": "07_MASTER_BUILD_PROMPT.md",
+      "bytes": 17047,
+      "sha256": "636a156f20f4581808fc4cb3cb67f531dd00b8d4e2dc5e2ddd6af4e547d0190f"
+    },
+    {
+      "file": "08_STAGED_EXECUTION_PROMPTS.md",
+      "bytes": 4618,
+      "sha256": "17d6f632d7adef0afca293980f4252ced580df00447f0a435eb3e54b9a3e2933"
+    },
+    {
+      "file": "09_QUARTZ_AND_AIDFLOW_GUIDANCE.md",
+      "bytes": 4447,
+      "sha256": "7abcedc024da13ce12da050834b2ae7461f00f35bea7b865d657e526cbf9ea50"
+    },
+    {
+      "file": "10_DEMO_RUNBOOK.md",
+      "bytes": 4198,
+      "sha256": "ad6eeb664d6eecdd28af432117326e2a80a305710ea09ace52e5fa34bc6e1d64"
+    },
+    {
+      "file": "11_24H_SCOPE_AND_PRODUCTION_GAPS.md",
+      "bytes": 3710,
+      "sha256": "7c2162b743d84135a547317381501e97e8467c25820edca940a0e3ad80d7b1f1"
+    },
+    {
+      "file": "12_SOURCE_LINKS_AND_DECISIONS.md",
+      "bytes": 3124,
+      "sha256": "82108d3d9f83cab2a21d211ae7b176a68529bd7307c666739a6b6b8b1ac3975f"
+    },
+    {
+      "file": "README.md",
+      "bytes": 4750,
+      "sha256": "6115f4a2418edf4f1bc8e1d5cfa081237d451dc38a3dca773aa816e2eba3cad5"
+    }
+  ]
+}

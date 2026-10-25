@@ -1,0 +1,559 @@
+{
+  "protocol": "TRUSTFABRIC_FORENSIC_PACKAGE",
+  "version": "1.0.0",
+  "exportedAt": "2026-10-25T11:10:39.084Z",
+  "networkMode": "LOCAL_DEMO_CACHE",
+  "genesisHash": "30570db50debd905255d31ec7b95ea7921b613c5bb6bd7e6a67c67a609d62da7",
+  "latestAuditHash": "5544bf229ad730b0429692e5a2291557973632ffe13b61aaf7c47fff5008cde7",
+  "recordCounts": {
+    "grants": 2,
+    "claims": 2,
+    "documents": 1,
+    "findings": 6,
+    "auditEvents": 2,
+    "escrowCases": 2
+  },
+  "data": {
+    "grants": [
+      {
+        "id": "grant-cw-2026-014",
+        "grantCode": "CW-2026-014",
+        "donorId": "donor-northstar",
+        "organizationId": "org-cascade-aid",
+        "purpose": "Water Infrastructure & Community Solar Facility",
+        "currency": "INR",
+        "authorizedAmountMinor": 100000000,
+        "allowedCategories": [
+          "Water Infrastructure",
+          "Sanitation Equipment",
+          "Engineering & Logistics"
+        ],
+        "milestones": [
+          {
+            "id": "MS-01",
+            "title": "Hydrogeological Survey & Deep Well Boring",
+            "description": "Survey aquifer depth and drill primary casing to 140m.",
+            "targetDate": "2026-03-15",
+            "amountMinor": 35000000,
+            "conditionType": "DELIVERY_ATTESTATION",
+            "isMet": true,
+            "metAt": "2026-02-18T14:00:00Z",
+            "proofRef": "att-ms01-verified"
+          },
+          {
+            "id": "MS-02",
+            "title": "Solar Water Purification & Pump Installation",
+            "description": "Install 5kW solar array and UV multi-stage filtration pump.",
+            "targetDate": "2026-04-30",
+            "amountMinor": 45000000,
+            "conditionType": "DELIVERY_ATTESTATION",
+            "isMet": false
+          },
+          {
+            "id": "MS-03",
+            "title": "Community Distribution Mains & Quality Sign-Off",
+            "description": "Lay 1.8km distribution pipes and certify potable water standards.",
+            "targetDate": "2026-06-15",
+            "amountMinor": 20000000,
+            "conditionType": "DELIVERY_ATTESTATION",
+            "isMet": false
+          }
+        ],
+        "status": "ACTIVE",
+        "createdAt": "2026-01-10T08:00:00Z",
+        "updatedAt": "2026-02-20T10:00:00Z",
+        "allocatedMinor": 80000000,
+        "spentMinor": 4250000,
+        "unreconciledMinor": 35000000,
+        "heldMinor": 0,
+        "remainingMinor": 95750000
+      },
+      {
+        "id": "grant-cw-2026-015",
+        "grantCode": "CW-2026-015",
+        "donorId": "donor-global-horizon",
+        "organizationId": "org-cascade-aid",
+        "purpose": "Emergency Sanitation & Pipeline Relief",
+        "currency": "INR",
+        "authorizedAmountMinor": 50000000,
+        "allowedCategories": [
+          "Sanitation Equipment",
+          "Emergency Medical",
+          "Logistics"
+        ],
+        "milestones": [
+          {
+            "id": "MS-B1",
+            "title": "Emergency Latrine Units & Pipeline Delivery",
+            "description": "Deploy 20 rapid sanitation units to sector B.",
+            "targetDate": "2026-03-25",
+            "amountMinor": 50000000,
+            "conditionType": "DELIVERY_ATTESTATION",
+            "isMet": false
+          }
+        ],
+        "status": "ACTIVE",
+        "createdAt": "2026-02-01T09:00:00Z",
+        "updatedAt": "2026-02-20T10:00:00Z",
+        "allocatedMinor": 50000000,
+        "spentMinor": 0,
+        "unreconciledMinor": 0,
+        "heldMinor": 0,
+        "remainingMinor": 50000000
+      }
+    ],
+    "allocations": [
+      {
+        "id": "alloc-01",
+        "grantId": "grant-cw-2026-014",
+        "category": "Water Infrastructure",
+        "amountMinor": 35000000,
+        "currency": "INR",
+        "milestoneId": "MS-01",
+        "conditionHash": "COND_HASH_MS01_WATER_INFRA",
+        "status": "APPROVED",
+        "createdAt": "2026-01-15T10:00:00Z"
+      },
+      {
+        "id": "alloc-02",
+        "grantId": "grant-cw-2026-014",
+        "category": "Sanitation Equipment",
+        "amountMinor": 45000000,
+        "currency": "INR",
+        "milestoneId": "MS-02",
+        "conditionHash": "COND_HASH_MS02_SANITATION",
+        "status": "APPROVED",
+        "createdAt": "2026-01-15T10:00:00Z"
+      }
+    ],
+    "events": [
+      {
+        "id": "evt-01-donation-eth",
+        "grantId": "grant-cw-2026-014",
+        "eventType": "DONATION",
+        "sourceType": "ETHEREUM",
+        "sourceChainId": "1",
+        "txHash": "0x3a9f817bc2d4e5192837465abcde918273645faebcd0192837465abce1283921",
+        "blockNumber": 19842100,
+        "finalityStatus": "FINALIZED",
+        "sourceAccountRef": "0x3841A820E9c852445E1c385C28f9A469A3B58dF6",
+        "destinationRef": "0x71295D0A72Bf4b162A48D5Fa930bE23901B84687",
+        "assetId": "ETH",
+        "amountMinor": 5000000000000,
+        "currency": "ETH",
+        "feeMinor": 2100000,
+        "occurredAt": "2026-01-12T08:15:00Z",
+        "observedAt": "2026-01-12T08:15:45Z",
+        "provenance": "Northstar Fund Safe on Ethereum Mainnet (Simulated)",
+        "simulated": true,
+        "idempotencyKey": "ETH_DONATION_CW2026014_0"
+      },
+      {
+        "id": "evt-02-swap-usdc",
+        "grantId": "grant-cw-2026-014",
+        "eventType": "SWAP",
+        "sourceType": "ETHEREUM",
+        "sourceChainId": "1",
+        "txHash": "0x882109abcf3451e92837465abcde918273645faebcd0192837465abce1982734",
+        "blockNumber": 19842145,
+        "finalityStatus": "FINALIZED",
+        "sourceAccountRef": "0x71295D0A72Bf4b162A48D5Fa930bE23901B84687",
+        "destinationRef": "Uniswap V3 ETH/USDC 0.05% Pool",
+        "assetId": "USDC",
+        "amountMinor": 125000000000,
+        "currency": "USD",
+        "feeMinor": 4500000,
+        "exchangeRate": 2500,
+        "occurredAt": "2026-01-12T09:00:00Z",
+        "observedAt": "2026-01-12T09:01:10Z",
+        "provenance": "Executed via Uniswap V3 Router. Rate: 1 ETH = 2,500 USDC.",
+        "simulated": true,
+        "idempotencyKey": "SWAP_ETH_USDC_CW2026014_1"
+      },
+      {
+        "id": "evt-03-bridge-mint",
+        "grantId": "grant-cw-2026-014",
+        "eventType": "BRIDGE_MINT",
+        "sourceType": "POLYGON",
+        "sourceChainId": "137",
+        "txHash": "0x55192837465abcde918273645faebcd0192837465abce1982734102938475628",
+        "blockNumber": 54910283,
+        "finalityStatus": "FINALIZED",
+        "sourceAccountRef": "Polygon PoS Bridge Relayer",
+        "destinationRef": "0x99281a8F9C4d87213892Bcf981A78B38c21746B3",
+        "assetId": "USDC",
+        "amountMinor": 124850000000,
+        "currency": "USD",
+        "feeMinor": 15000000,
+        "occurredAt": "2026-01-12T10:15:00Z",
+        "observedAt": "2026-01-12T10:16:30Z",
+        "provenance": "Minted on Polygon PoS following proof verification on source bridge.",
+        "simulated": true,
+        "idempotencyKey": "BRIDGE_POLYGON_CW2026014_2"
+      },
+      {
+        "id": "evt-04-bank-fiat-settle",
+        "grantId": "grant-cw-2026-014",
+        "eventType": "VENDOR_PAYMENT",
+        "sourceType": "BANK_FIAT",
+        "txHash": "HDFC-NEFT-20260216-992148109",
+        "finalityStatus": "FINALIZED",
+        "sourceAccountRef": "HDFC Bank NGO Current A/C #9921****812",
+        "destinationRef": "GreenBuild Supplies Ltd Current A/C #1102****391",
+        "assetId": "INR",
+        "amountMinor": 4250000,
+        "currency": "INR",
+        "feeMinor": 500,
+        "occurredAt": "2026-02-16T11:20:00Z",
+        "observedAt": "2026-02-16T11:25:00Z",
+        "provenance": "Cleared via Reserve Bank of India NEFT Clearing Network (CAMT.053 feed).",
+        "simulated": true,
+        "idempotencyKey": "FIAT_NEFT_INV1047_3"
+      },
+      {
+        "id": "evt-05-unexplained-gap",
+        "grantId": "UNREGISTERED_ENTITY_88",
+        "eventType": "VENDOR_PAYMENT",
+        "sourceType": "POLYGON",
+        "sourceChainId": "137",
+        "txHash": "0xdeadbeef182937465abce1982734102938475628182937465abcde918273645f",
+        "blockNumber": 54911000,
+        "finalityStatus": "FINALIZED",
+        "sourceAccountRef": "0x99281a8F9C4d87213892Bcf981A78B38c21746B3",
+        "destinationRef": "0x7777777777777777777777777777777777777777",
+        "assetId": "USDC",
+        "amountMinor": 1500000000,
+        "currency": "USD",
+        "feeMinor": 2000,
+        "occurredAt": "2026-02-17T15:00:00Z",
+        "observedAt": "2026-02-17T15:02:00Z",
+        "provenance": "Direct wallet transfer with no linked allocation ID.",
+        "simulated": true,
+        "idempotencyKey": "UNEXPLAINED_TX_GAP_05"
+      }
+    ],
+    "flowEdges": [
+      {
+        "id": "edge-01-swap",
+        "grantId": "grant-cw-2026-014",
+        "fromEventId": "evt-01-donation-eth",
+        "toEventId": "evt-02-swap-usdc",
+        "edgeType": "SWAP",
+        "amountInMinor": 5000000000000,
+        "assetIn": "ETH",
+        "amountOutMinor": 125000000000,
+        "assetOut": "USDC",
+        "feeMinor": 4500000,
+        "rate": 2500,
+        "linkEvidenceId": "swap-receipt-0x882109",
+        "linkStatus": "VERIFIED",
+        "confidenceReason": "VERIFIED: Swap executed with signed DEX liquidity proof."
+      },
+      {
+        "id": "edge-02-bridge",
+        "grantId": "grant-cw-2026-014",
+        "fromEventId": "evt-02-swap-usdc",
+        "toEventId": "evt-03-bridge-mint",
+        "edgeType": "BRIDGE",
+        "amountInMinor": 125000000000,
+        "assetIn": "USDC",
+        "amountOutMinor": 124850000000,
+        "assetOut": "USDC",
+        "feeMinor": 15000000,
+        "rate": 1,
+        "linkEvidenceId": "proof-bridge-lock-mint-pair",
+        "linkStatus": "VERIFIED",
+        "confidenceReason": "VERIFIED: Bridge relayer validator signatures verified."
+      },
+      {
+        "id": "edge-03-unreconciled-gap",
+        "grantId": "grant-cw-2026-014",
+        "fromEventId": "evt-03-bridge-mint",
+        "toEventId": "evt-unresolved-destination",
+        "edgeType": "BRIDGE",
+        "amountInMinor": 5000000000,
+        "assetIn": "USDC",
+        "amountOutMinor": 0,
+        "assetOut": "USDC",
+        "feeMinor": 0,
+        "rate": 1,
+        "linkStatus": "UNRECONCILED",
+        "confidenceReason": "UNRECONCILED: Bridge transaction initiated on source but missing destination proof."
+      }
+    ],
+    "claims": [
+      {
+        "id": "claim-inv-1047",
+        "grantId": "grant-cw-2026-014",
+        "vendorRef": "GreenBuild Supplies Ltd",
+        "invoiceNumberToken": "INV-1047",
+        "currency": "INR",
+        "amountMinor": 4250000,
+        "invoiceDate": "2026-02-15T09:00:00Z",
+        "category": "Water Infrastructure",
+        "purposeRef": "Deep well boring casing & heavy PVC filtration piping",
+        "paymentEventId": "evt-04-bank-fiat-settle",
+        "deliveryMilestoneId": "MS-01",
+        "claimStatus": "VERIFIED",
+        "disbursementStatus": "RELEASED",
+        "createdAt": "2026-02-16T08:00:00Z",
+        "updatedAt": "2026-02-18T15:00:00Z"
+      },
+      {
+        "id": "claim-out-of-category-02",
+        "grantId": "grant-cw-2026-014",
+        "vendorRef": "Apex Luxury Car Rentals",
+        "invoiceNumberToken": "INV-LUX-998",
+        "currency": "INR",
+        "amountMinor": 18000000,
+        "invoiceDate": "2026-02-18T10:00:00Z",
+        "category": "Executive Travel & Luxury Transport",
+        "purposeRef": "Chauffeured VIP transportation for regional executives",
+        "claimStatus": "REJECTED",
+        "disbursementStatus": "ON_HOLD",
+        "createdAt": "2026-02-18T11:00:00Z",
+        "updatedAt": "2026-02-18T11:05:00Z"
+      }
+    ],
+    "documents": [
+      {
+        "id": "doc-inv-1047",
+        "claimId": "claim-inv-1047",
+        "filename": "Invoice_INV-1047_GreenBuild.pdf",
+        "storageKey": "vault://private_evidence/claim-inv-1047/doc-inv-1047/Invoice_INV-1047_GreenBuild.pdf",
+        "mimeType": "application/pdf",
+        "sizeBytes": 248102,
+        "sha256": "bfebfb5738278df6feff92cfd8f2f2733f047af4cc9af65d5c810aac442736a0",
+        "canonicalCommitment": "6c6b415899a48d13e2afe9a63b80085919e5cab0c230e2ea456e4015269ddc5c",
+        "expenseNullifierRef": "592d180ed7b1c40f59059ddcc9f4ace4ff97e876d4e4d527734b39bccf913bd6",
+        "extractedFields": {
+          "vendorName": "GreenBuild Supplies Ltd",
+          "invoiceNumber": "INV-1047",
+          "date": "2026-02-15",
+          "totalAmountMinor": 4250000,
+          "currency": "INR",
+          "lineItems": [
+            {
+              "description": "Heavy Borehole Steel Casing 140m",
+              "amountMinor": 2850000
+            },
+            {
+              "description": "Submersible PVC Distribution Risers",
+              "amountMinor": 1400000
+            }
+          ],
+          "isOcrExtracted": true
+        },
+        "issuerSignatureRef": "SIGNER_VENDOR_GREENBUILD",
+        "verificationStatus": "SOURCE_ATTESTED",
+        "uploadedBy": "finance_officer_rohit",
+        "uploadedAt": "2026-02-16T08:10:00Z"
+      }
+    ],
+    "deliveryAttestations": [
+      {
+        "id": "att-ms01-verified",
+        "claimId": "claim-inv-1047",
+        "milestoneId": "MS-01",
+        "canonicalStatementCommitment": "cdd3243c7735bb0919227cb7b31a5eefd452cef2f3f2334470fb5bc479c3525b",
+        "signerCredentialRef": "SIGNER_FIELD_OFFICER_01",
+        "signature": "051b8760df6cc1ff69c357d0b44f80593534cd0fbdcef4199b78825e420cc298",
+        "nonce": "NONCE_FIELD_MS01_991823HNA1",
+        "issuedAt": "2026-02-18T14:00:00Z",
+        "proofRef": "proof-merkle-ms01-block54109430",
+        "verificationStatus": "SOURCE_ATTESTED"
+      }
+    ],
+    "escrowCases": [
+      {
+        "id": "esc-claim-inv-1047",
+        "grantId": "grant-cw-2026-014",
+        "claimId": "claim-inv-1047",
+        "trancheId": "tranche-inv1047",
+        "state": "RELEASED",
+        "enforcementType": "APP_HOLD",
+        "lastTransition": "2026-02-18T15:00:00Z",
+        "transitionReason": "All smart-contract policy conditions verified: category valid, evidence matched, delivery signed."
+      },
+      {
+        "id": "esc-claim-lux",
+        "grantId": "grant-cw-2026-014",
+        "claimId": "claim-out-of-category-02",
+        "trancheId": "tranche-lux998",
+        "state": "ON_HOLD",
+        "triggerFindingId": "find-rule2-cat-claim-out-of-category-02",
+        "enforcementType": "APP_HOLD",
+        "lastTransition": "2026-02-18T11:05:00Z",
+        "transitionReason": "AUTOMATED POLICY FREEZE: Spending category outside authorized grant scope."
+      }
+    ],
+    "findings": [
+      {
+        "id": "find-rule1-evt-04-bank-fiat-settle",
+        "grantId": "grant-cw-2026-014",
+        "type": "UNEXPLAINED_TRANSFER",
+        "severity": "CRITICAL",
+        "ruleId": "RULE-DISC-01",
+        "title": "Unexplained Fund Transfer (INR 42,500)",
+        "explanation": "Financial event tx HDFC-NEFT-2026... has no authorized grant allocation path or provenance link.",
+        "evidenceRefs": [
+          "evt-04-bank-fiat-settle",
+          "HDFC-NEFT-20260216-992148109"
+        ],
+        "affectedAmountMinor": 4250000,
+        "findingStatus": "OPEN",
+        "actionTaken": "Flagged for forensic review; excluded from verified impact tally.",
+        "detectedAt": "2026-10-25T11:10:39.084Z"
+      },
+      {
+        "id": "find-rule1-evt-05-unexplained-gap",
+        "grantId": "UNREGISTERED_ENTITY_88",
+        "type": "UNEXPLAINED_TRANSFER",
+        "severity": "CRITICAL",
+        "ruleId": "RULE-DISC-01",
+        "title": "Unexplained Fund Transfer (USD 15,000,000)",
+        "explanation": "Financial event tx 0xdeadbeef1829... has no authorized grant allocation path or provenance link.",
+        "evidenceRefs": [
+          "evt-05-unexplained-gap",
+          "0xdeadbeef182937465abce1982734102938475628182937465abcde918273645f"
+        ],
+        "affectedAmountMinor": 1500000000,
+        "findingStatus": "OPEN",
+        "actionTaken": "Flagged for forensic review; excluded from verified impact tally.",
+        "detectedAt": "2026-10-25T11:10:39.084Z"
+      },
+      {
+        "id": "find-rule2-cat-claim-out-of-category-02",
+        "grantId": "grant-cw-2026-014",
+        "claimId": "claim-out-of-category-02",
+        "type": "OUT_OF_CATEGORY_SPEND",
+        "severity": "HIGH",
+        "ruleId": "RULE-DISC-02",
+        "title": "Unauthorized Expense Category: \"Executive Travel & Luxury Transport\"",
+        "explanation": "Expense Claim for Apex Luxury Car Rentals (INR 180,000) falls under category \"Executive Travel & Luxury Transport\", which is NOT in the authorized categories [Water Infrastructure, Sanitation Equipment, Engineering & Logistics] specified by Donor donor-northstar.",
+        "evidenceRefs": [
+          "claim-out-of-category-02",
+          "grant-cw-2026-014"
+        ],
+        "affectedAmountMinor": 18000000,
+        "findingStatus": "OPEN",
+        "actionTaken": "Escrow release blocked; category deviation policy applied.",
+        "detectedAt": "2026-10-25T11:10:39.084Z"
+      },
+      {
+        "id": "find-rule5-nodoc-claim-out-of-category-02",
+        "grantId": "grant-cw-2026-014",
+        "claimId": "claim-out-of-category-02",
+        "type": "MISSING_EVIDENCE",
+        "severity": "HIGH",
+        "ruleId": "RULE-DISC-05",
+        "title": "Expenditure Claim Missing Supporting Evidence",
+        "explanation": "Claim INV-LUX-998 by Apex Luxury Car Rentals has no attached invoice PDF or cryptographic commitment.",
+        "evidenceRefs": [
+          "claim-out-of-category-02"
+        ],
+        "affectedAmountMinor": 18000000,
+        "findingStatus": "OPEN",
+        "actionTaken": "Claim marked UNVERIFIED; release condition cannot be satisfied.",
+        "detectedAt": "2026-10-25T11:10:39.084Z"
+      },
+      {
+        "id": "find-rule6-rep-rep-q1-2026",
+        "grantId": "grant-cw-2026-014",
+        "type": "REPORT_TOTAL_MISMATCH",
+        "severity": "HIGH",
+        "ruleId": "RULE-DISC-06",
+        "title": "Self-Published Report Discrepancy (607,500)",
+        "explanation": "NGO published report claims total expenditure of 650,000, but cryptographic ledger calculations verify only 42,500 of evidence-backed claims. Difference: 607,500.",
+        "evidenceRefs": [
+          "rep-q1-2026",
+          "claim-inv-1047"
+        ],
+        "affectedAmountMinor": 60750000,
+        "findingStatus": "OPEN",
+        "actionTaken": "Public impact metric adjusted to evidence-backed calculated total.",
+        "detectedAt": "2026-10-25T11:10:39.084Z"
+      },
+      {
+        "id": "find-rule7-gap-edge-03-unreconciled-gap",
+        "grantId": "grant-cw-2026-014",
+        "type": "MISSING_BRIDGE_PROOF",
+        "severity": "HIGH",
+        "ruleId": "RULE-DISC-07",
+        "title": "Unreconciled Multi-Hop Link (BRIDGE)",
+        "explanation": "Lineage edge from event evt-03-bridge-mint to evt-unresolved-destination lacks verifiable cryptographic bridge destination proof or bank settlement confirmation. Status preserved as UNRECONCILED.",
+        "evidenceRefs": [
+          "edge-03-unreconciled-gap",
+          "evt-03-bridge-mint",
+          "evt-unresolved-destination"
+        ],
+        "affectedAmountMinor": 5000000000,
+        "findingStatus": "OPEN",
+        "actionTaken": "Lineage marked with GAP; prevented from jumping to verified impact.",
+        "detectedAt": "2026-10-25T11:10:39.084Z"
+      }
+    ],
+    "auditEvents": [
+      {
+        "id": "aud-1792926639072-bd4kp",
+        "sequence": 1,
+        "actorRef": "SYSTEM_BOOTSTRAP",
+        "actorRole": "ADMIN",
+        "action": "SYSTEM_INITIALIZATION",
+        "entityType": "PLATFORM",
+        "entityId": "TRUSTFABRIC_GENESIS",
+        "timestamp": "2026-10-25T11:10:39.072Z",
+        "reason": "Seeded initial CASCADE PS 4.2 demonstration scenario (Grant CW-2026-014).",
+        "prevEventHash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "eventHash": "30570db50debd905255d31ec7b95ea7921b613c5bb6bd7e6a67c67a609d62da7",
+        "sourceRef": "TRUSTFABRIC_NODE_CORE"
+      },
+      {
+        "id": "aud-1792926639084-78rmj",
+        "sequence": 2,
+        "actorRef": "AUDITOR_OFFSHORE_01",
+        "actorRole": "AUDITOR",
+        "action": "ANNUAL_COMPLIANCE_SIGN_OFF",
+        "entityType": "GRANT",
+        "entityId": "grant-cw-2026-014",
+        "timestamp": "2026-10-25T11:10:39.084Z",
+        "reason": "Cryptographic audit trail and expense nullifier uniqueness independently confirmed.",
+        "prevEventHash": "30570db50debd905255d31ec7b95ea7921b613c5bb6bd7e6a67c67a609d62da7",
+        "eventHash": "5544bf229ad730b0429692e5a2291557973632ffe13b61aaf7c47fff5008cde7",
+        "sourceRef": "TRUSTFABRIC_NODE_CORE"
+      }
+    ],
+    "reports": [
+      {
+        "id": "rep-q1-2026",
+        "grantId": "grant-cw-2026-014",
+        "reportPeriod": "Q1 2026 (Jan - Mar)",
+        "reportedTotalMinor": 65000000,
+        "calculatedTotalMinor": 4250000,
+        "differenceMinor": 60750000,
+        "evidenceRefs": [
+          "claim-inv-1047"
+        ],
+        "status": "DISCREPANCY_FLAGGED",
+        "generatedAt": "2026-02-20T09:00:00Z"
+      }
+    ],
+    "bankStatements": [
+      {
+        "id": "bank-stmt-01",
+        "transactionDate": "2026-02-16",
+        "clearingDate": "2026-02-16",
+        "bankAccountIbanOrMasked": "HDFC Bank NGO Current A/C #9921****812",
+        "counterpartyName": "GreenBuild Supplies Ltd",
+        "paymentReferenceToken": "NEFT/INV-1047/DEEPWELL",
+        "amountMinor": 4250000,
+        "currency": "INR",
+        "feeMinor": 500,
+        "statementDocSha256": "SHA256_BANK_MT940_STMT_20260216",
+        "isSignedByBankApi": true
+      }
+    ],
+    "currentUserRole": "ADMIN",
+    "activeDonorId": "donor-northstar"
+  }
+}

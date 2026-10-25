@@ -1,0 +1,16 @@
+{
+  "name": "trustfabric",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TrustFabric — Verifiable NGO Fund Flows (CASCADE '26 Theme 4 Problem 4.2)",
+  "scripts": {
+    "server:start": "npm --prefix server start",
+    "server:dev": "npm --prefix server run dev",
+    "server:test": "npm --prefix server test",
+    "dev:frontend": "npm --prefix \"smart ledger/frontend\" run dev",
+    "dev": "npm --prefix \"smart ledger/frontend\" run dev",
+    "build": "npm --prefix \"smart ledger/frontend\" run build",
+    "test": "npm --prefix \"smart ledger/frontend\" test && npm --prefix server test",
+    "start": "npm --prefix \"smart ledger/frontend\" run preview"
+  }
+}
