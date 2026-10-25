@@ -4,6 +4,7 @@ import { config } from './config.js';
 import { paymentRouter } from './routes/paymentRoutes.js';
 import { ngoRouter } from './routes/ngoRoutes.js';
 import { authRouter } from './routes/authRoutes.js';
+import { dbRoutes } from './routes/dbRoutes.js';
 
 const app = express();
 
@@ -38,10 +39,11 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-// Mount auth, payment and NGO verification API routes
+// Mount auth, payment, NGO verification and cloud persistence API routes
 app.use('/api', authRouter);
 app.use('/api', paymentRouter);
 app.use('/api', ngoRouter);
+app.use('/api/db', dbRoutes);
 
 // Start server if not running in test mode
 if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {

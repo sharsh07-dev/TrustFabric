@@ -1,0 +1,222 @@
+// TrustFabric Cloud Database Persistence (PostgreSQL / Supabase)
+// CASCADE '26 Theme 4 Problem 4.2: The Black Hole Ledger
+// Managed Database Schema for 100+ Live Users
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// -------------------------------------------------------------
+// 1. User & Role Management (RBAC)
+// -------------------------------------------------------------
+model User {
+  id             String          @id @default(uuid())
+  email          String          @unique
+  name           String
+  role           String          // 'DONOR' | 'ADMIN' | 'AUDITOR' | 'FIELD_WORKER' | 'VENDOR'
+  organizationId String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  expenseClaims  ExpenseClaim[]
+  donations      DonationIntent[]
+
+  @@map("users")
+}
+
+// -------------------------------------------------------------
+// 2. Grants & Purpose Allocations
+// -------------------------------------------------------------
+model Grant {
+  id                 String              @id @default(uuid())
+  grantCode          String              @unique
+  title              String
+  purpose            String
+  currency           String              @default("INR")
+  minDonationPaise   Int                 @default(10000)
+  maxDonationPaise   Int                 @default(50000000)
+  status             String              @default("ACTIVE") // 'ACTIVE' | 'PAUSED' | 'COMPLETED'
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  purposeAllocations PurposeAllocation[]
+  expenseClaims      ExpenseClaim[]
+  donations          DonationIntent[]
+
+  @@map("grants")
+}
+
+model PurposeAllocation {
+  id              String   @id @default(uuid())
+  grantId         String
+  purposeName     String
+  allocationPaise Int
+  spentPaise      Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  grant           Grant    @relation(fields: [grantId], references: [id], onDelete: Cascade)
+
+  @@index([grantId])
+  @@map("purpose_allocations")
+}
+
+// -------------------------------------------------------------
+// 3. Expense Claims & Normalized Invoices
+// -------------------------------------------------------------
+model ExpenseClaim {
+  id                String                      @id @default(uuid())
+  claimCode         String                      @unique
+  grantId           String
+  submitterId       String
+  amountPaise       Int
+  currency          String                      @default("INR")
+  vendorName        String
+  invoiceNumber     String
+  invoiceDate       DateTime
+  invoiceSha256     String
+  nullifierHash     String                      @unique
+  status            String                      @default("PENDING") // 'PENDING' | 'VERIFIED' | 'FLAGGED_DUPLICATE' | 'REJECTED'
+  reviewNotes       String?
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+
+  grant             Grant                       @relation(fields: [grantId], references: [id])
+  submitter         User                        @relation(fields: [submitterId], references: [id])
+  normalizedInvoice NormalizedInvoice?
+  nullifierRecord   DuplicateNullifierRegistry?
+
+  @@index([grantId])
+  @@index([submitterId])
+  @@map("expense_claims")
+}
+
+model NormalizedInvoice {
+  id             String       @id @default(uuid())
+  expenseClaimId String       @unique
+  invoiceNumber  String
+  vendorGst      String?
+  amountPaise    Int
+  lineItemsJson  String       // Serialized JSON of itemized lines
+  ocrConfidence  Float        @default(1.0)
+  verifiedAt     DateTime     @default(now())
+
+  expenseClaim   ExpenseClaim @relation(fields: [expenseClaimId], references: [id], onDelete: Cascade)
+
+  @@map("normalized_invoices")
+}
+
+// -------------------------------------------------------------
+// 4. Privacy-Preserving Duplicate Nullifier Registry
+// -------------------------------------------------------------
+model DuplicateNullifierRegistry {
+  id            String       @id @default(uuid())
+  nullifierHash String       @unique
+  claimId       String       @unique
+  detectedAt    DateTime     @default(now())
+  algorithm     String       @default("HMAC_SHA256_NULLIFIER_V1")
+  saltVersion   String       @default("TF_EXPENSE_SALT_2026_CASCADE_PS42")
+
+  expenseClaim  ExpenseClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@index([nullifierHash])
+  @@map("duplicate_nullifier_registry")
+}
+
+// -------------------------------------------------------------
+// 5. Sequential Cryptographic Audit Ledger (SHA-256 Block Chain)
+// -------------------------------------------------------------
+model AuditBlock {
+  id             String   @id @default(uuid())
+  sequenceNumber Int      @unique
+  actorRef       String
+  action         String
+  previousState  String?
+  newState       String
+  payloadHash    String
+  prevEventHash  String
+  eventHash      String
+  createdAt      DateTime @default(now())
+
+  @@index([sequenceNumber])
+  @@map("audit_block_chain")
+}
+
+// -------------------------------------------------------------
+// 6. Donations & Razorpay Verification
+// -------------------------------------------------------------
+model DonationIntent {
+  id                String                @id @default(uuid())
+  donationCode      String                @unique
+  grantId           String
+  amountPaise       Int
+  currency          String                @default("INR")
+  donorId           String?
+  donorName         String?
+  donorEmail        String?
+  razorpayOrderId   String                @unique
+  razorpayPaymentId String?
+  state             String                @default("CREATED") // 'CREATED' | 'AUTHORIZED' | 'VERIFIED' | 'ANCHORED' | 'FAILED'
+  idempotencyKey    String                @unique
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  grant             Grant                 @relation(fields: [grantId], references: [id])
+  donor             User?                 @relation(fields: [donorId], references: [id])
+  anchor            OnchainPaymentAnchor?
+
+  @@index([grantId])
+  @@index([donorId])
+  @@map("donation_intents")
+}
+
+// -------------------------------------------------------------
+// 7. On-Chain Sepolia Blockchain Anchors
+// -------------------------------------------------------------
+model OnchainPaymentAnchor {
+  id                String         @id @default(uuid())
+  donationIntentId  String         @unique
+  paymentCommitment String         @unique
+  txHash            String         @unique
+  blockNumber       Int
+  contractAddress   String
+  chainId           Int            @default(11155111) // Sepolia EVM
+  relayerAddress    String
+  status            String         @default("CONFIRMED")
+  createdAt         DateTime       @default(now())
+
+  donationIntent    DonationIntent @relation(fields: [donationIntentId], references: [id], onDelete: Cascade)
+
+  @@map("onchain_payment_anchors")
+}
+
+// -------------------------------------------------------------
+// 8. NGO Regulatory Verification & Escrow Applications
+// -------------------------------------------------------------
+model NgoApplication {
+  id                  String   @id @default(uuid())
+  ngoName             String
+  regNumber           String
+  darpanId            String   @unique
+  pan                 String
+  contactPerson       String
+  contactEmail        String
+  bankDetailsJson     String   // Serialized JSON
+  projectProposalJson String   // Serialized JSON
+  documentsJson       String   // Serialized JSON
+  automatedChecksJson String   // Serialized JSON
+  verificationStatus  String   @default("UNDER_REVIEW") // 'UNDER_REVIEW' | 'APPROVED' | 'FLAGGED_DEFECTS' | 'REJECTED'
+  reviewDecisionJson  String?  // Serialized JSON
+  escrowAuthJson      String?  // Serialized JSON
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([darpanId])
+  @@map("ngo_applications")
+}
