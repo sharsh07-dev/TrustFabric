@@ -244,4 +244,158 @@ router.get('/:id/raw', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * GET /api/evidence/:id/extraction
+ * Retrieves extracted OCR fields, confidence, line items, and audit corrections.
+ */
+router.get('/:id/extraction', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user;
+  if (user.role === 'DONOR') {
+    return res.status(403).json({ success: false, error: 'Forbidden: Donors cannot view extraction data.' });
+  }
+
+  const evidence = vaultService.getEvidence(req.params.id);
+  if (!evidence) {
+    return res.status(404).json({ success: false, error: 'Evidence record not found' });
+  }
+
+  const isGlobal = user.role === 'ADMIN' || user.role === 'AUDITOR';
+  if (!isGlobal && user.organizationId && user.organizationId !== evidence.organizationId) {
+    return res.status(403).json({ success: false, error: 'Forbidden: Cross-organization access denied.' });
+  }
+
+  const extraction = vaultService.getExtraction(req.params.id);
+  const corrections = vaultService.getUserCorrections(req.params.id);
+
+  res.json({
+    success: true,
+    evidenceId: req.params.id,
+    ocrStatus: evidence.ocrStatus,
+    extraction: extraction || null,
+    userCorrections: corrections,
+  });
+});
+
+/**
+ * GET /api/evidence/:id/forensics
+ * Retrieves EXIF metadata, arithmetic checks, detected signals, and overall forensic risk level.
+ */
+router.get('/:id/forensics', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user;
+  if (user.role === 'DONOR') {
+    return res.status(403).json({ success: false, error: 'Forbidden: Donors cannot view forensic reports.' });
+  }
+
+  const evidence = vaultService.getEvidence(req.params.id);
+  if (!evidence) {
+    return res.status(404).json({ success: false, error: 'Evidence record not found' });
+  }
+
+  const isGlobal = user.role === 'ADMIN' || user.role === 'AUDITOR';
+  if (!isGlobal && user.organizationId && user.organizationId !== evidence.organizationId) {
+    return res.status(403).json({ success: false, error: 'Forbidden: Cross-organization access denied.' });
+  }
+
+  const forensics = vaultService.getForensics(req.params.id);
+
+  res.json({
+    success: true,
+    evidenceId: req.params.id,
+    forensicRiskLevel: evidence.forensicRiskLevel,
+    forensics: forensics || null,
+  });
+});
+
+/**
+ * GET /api/evidence/:id/duplicates
+ * Retrieves duplicate candidates, match types, matching fields, and candidate evidence IDs.
+ */
+router.get('/:id/duplicates', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user;
+  if (user.role === 'DONOR') {
+    return res.status(403).json({ success: false, error: 'Forbidden: Donors cannot inspect duplicate matches.' });
+  }
+
+  const evidence = vaultService.getEvidence(req.params.id);
+  if (!evidence) {
+    return res.status(404).json({ success: false, error: 'Evidence record not found' });
+  }
+
+  const isGlobal = user.role === 'ADMIN' || user.role === 'AUDITOR';
+  if (!isGlobal && user.organizationId && user.organizationId !== evidence.organizationId) {
+    return res.status(403).json({ success: false, error: 'Forbidden: Cross-organization access denied.' });
+  }
+
+  const candidates = vaultService.getDuplicates(req.params.id);
+
+  res.json({
+    success: true,
+    evidenceId: req.params.id,
+    duplicateStatus: evidence.duplicateStatus,
+    candidateCount: candidates.length,
+    candidates,
+  });
+});
+
+/**
+ * POST /api/evidence/:id/review
+ * Records an authorized human reviewer decision (GENUINE, SUSPICIOUS, INCONCLUSIVE).
+ * Requires ADMIN or AUDITOR role.
+ */
+router.post(
+  '/:id/review',
+  requireAuth,
+  requireRoles('ADMIN', 'AUDITOR'),
+  (req: Request, res: Response) => {
+    try {
+      const { decision, notes } = req.body;
+      if (!decision || !['GENUINE', 'SUSPICIOUS', 'INCONCLUSIVE'].includes(decision)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid review decision. Permitted values: GENUINE, SUSPICIOUS, INCONCLUSIVE',
+        });
+      }
+
+      const user = (req as any).user;
+      const updated = vaultService.recordReviewDecision(req.params.id, decision, user, notes);
+
+      res.json({
+        success: true,
+        message: 'Review decision recorded successfully.',
+        evidence: updated,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+);
+
+/**
+ * PATCH /api/evidence/:id/extraction
+ * Allows authorized users to correct extracted fields while preserving the original extraction audit trail.
+ */
+router.patch('/:id/extraction', requireAuth, (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (user.role === 'DONOR') {
+      return res.status(403).json({ success: false, error: 'Forbidden: Donors cannot modify extraction data.' });
+    }
+
+    const { corrections } = req.body;
+    if (!corrections || typeof corrections !== 'object') {
+      return res.status(400).json({ success: false, error: 'Missing corrections object.' });
+    }
+
+    const result = vaultService.applyCorrection(req.params.id, corrections, user);
+
+    res.json({
+      success: true,
+      message: 'Corrections applied and tracked in user correction audit log.',
+      extraction: result.extraction,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 export const evidenceRoutes = router;

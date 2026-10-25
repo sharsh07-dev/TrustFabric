@@ -235,13 +235,91 @@ model EvidenceDocument {
   uploaderId         String
   claimId            String?
   verificationStatus String   @default("VERIFIED") // 'VERIFIED' | 'TAMPERED' | 'PENDING'
+  pipelineStatus     String   @default("UPLOADED") // 'UPLOADED' | 'QUEUED' | 'OCR_PROCESSING' | 'OCR_COMPLETED' | 'FORENSIC_ANALYSIS' | 'REVIEW_REQUIRED' | 'COMPLETED' | 'FAILED'
+  ocrStatus          String   @default("PENDING") // 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
+  duplicateStatus    String   @default("NO_MATCH_FOUND") // 'NO_MATCH_FOUND' | 'POSSIBLE_DUPLICATE' | 'CONFIRMED_DUPLICATE' | 'UNRESOLVED'
+  forensicRiskLevel  String   @default("LOW") // 'LOW' | 'MEDIUM' | 'HIGH' | 'INCONCLUSIVE'
+  reviewDecision     String   @default("PENDING") // 'PENDING' | 'GENUINE' | 'SUSPICIOUS' | 'INCONCLUSIVE'
+  reviewedBy         String?
+  reviewedAt         DateTime?
+  reviewNotes        String?
   storageProvider    String   @default("supabase_storage")
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
+  extraction         EvidenceExtraction?
+  forensics          EvidenceForensics?
+  duplicateCandidates EvidenceDuplicateCandidate[]
+
   @@index([organizationId])
   @@index([sha256])
+  @@index([pipelineStatus])
   @@map("evidence_documents")
+}
+
+model EvidenceExtraction {
+  id                  String           @id @default(uuid())
+  evidenceId          String           @unique
+  vendorName          String?
+  vendorGstin         String?
+  invoiceNumber       String?
+  invoiceDate         String?
+  currency            String           @default("INR")
+  subtotalPaise       Int?
+  taxableAmountPaise  Int?
+  cgstPaise           Int?
+  sgstPaise           Int?
+  igstPaise           Int?
+  totalAmountPaise    Int?
+  poNumber            String?
+  ocrConfidence       Float?
+  rawText             String
+  lineItemsJson       String?          // Serialized JSON of line items
+  fieldsMetadataJson  String           // Serialized JSON of field statuses, confidences, locations
+  userCorrectionsJson String?          // Serialized JSON of audit-tracked user overrides
+  engineVersion       String           @default("tesseract-ocr-v1")
+  pageCount           Int              @default(1)
+  status              String           @default("COMPLETED") // 'COMPLETED' | 'LOW_CONFIDENCE' | 'FAILED'
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  evidence            EvidenceDocument @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+
+  @@index([vendorGstin])
+  @@index([invoiceNumber])
+  @@map("evidence_extractions")
+}
+
+model EvidenceForensics {
+  id               String           @id @default(uuid())
+  evidenceId       String           @unique
+  metadataJson     String           // EXIF / PDF metadata
+  checksJson       String           // Serialized JSON array of checks performed
+  signalsJson      String           // Serialized JSON array of detected signals with severity
+  overallRisk      String           @default("LOW") // 'LOW' | 'MEDIUM' | 'HIGH' | 'INCONCLUSIVE'
+  methodologyNotes String
+  processedAt      DateTime         @default(now())
+
+  evidence         EvidenceDocument @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+
+  @@index([overallRisk])
+  @@map("evidence_forensics")
+}
+
+model EvidenceDuplicateCandidate {
+  id                  String           @id @default(uuid())
+  evidenceId          String
+  collidingEvidenceId String
+  matchType           String           // 'EXACT_HASH' | 'INVOICE_FIELDS_MATCH' | 'FUZZY_VENDOR_MATCH'
+  matchingFieldsJson  String           // Serialized JSON of matched fields
+  rule                String           // Description of rule triggered
+  detectedAt          DateTime         @default(now())
+
+  evidence            EvidenceDocument @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+
+  @@index([evidenceId])
+  @@index([collidingEvidenceId])
+  @@map("evidence_duplicate_candidates")
 }
 
 // -------------------------------------------------------------

@@ -3,6 +3,11 @@ import fs from 'fs';
 import path from 'path';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { AuthUser, UserRole } from '../types.js';
+import { FileSignatureValidator } from './evidence/fileSignatureValidator.js';
+import type { OcrExtractionResult } from './ocr/ocrEngine.js';
+import type { ForensicAnalysisResult } from './forensics/forensicsService.js';
+import type { DuplicateCandidate, ExistingEvidenceRecord } from './evidence/duplicateDetectionService.js';
+import { EvidenceQueueService } from './evidence/evidenceQueueService.js';
 
 export interface EvidenceRecord {
   id: string;
@@ -16,6 +21,14 @@ export interface EvidenceRecord {
   uploaderRole: UserRole;
   claimId?: string;
   verificationStatus: 'VERIFIED' | 'TAMPERED' | 'PENDING';
+  pipelineStatus: 'UPLOADED' | 'QUEUED' | 'OCR_PROCESSING' | 'OCR_COMPLETED' | 'FORENSIC_ANALYSIS' | 'REVIEW_REQUIRED' | 'COMPLETED' | 'FAILED';
+  ocrStatus: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  duplicateStatus: 'NO_MATCH_FOUND' | 'POSSIBLE_DUPLICATE' | 'CONFIRMED_DUPLICATE' | 'UNRESOLVED';
+  forensicRiskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'INCONCLUSIVE';
+  reviewDecision: 'PENDING' | 'GENUINE' | 'SUSPICIOUS' | 'INCONCLUSIVE';
+  reviewedBy?: string;
+  reviewedAt?: string;
+  reviewNotes?: string;
   storageProvider: 'supabase_storage' | 'secure_local_vault';
   uploadedAt: string;
   updatedAt: string;
@@ -57,6 +70,11 @@ export class EvidenceVaultService {
   private vaultStorageDir: string;
   private metadataStore: Map<string, EvidenceRecord> = new Map();
   private persistentStatePath: string;
+
+  private extractions: Map<string, OcrExtractionResult> = new Map();
+  private forensics: Map<string, ForensicAnalysisResult> = new Map();
+  private duplicateCandidates: Map<string, DuplicateCandidate[]> = new Map();
+  private userCorrections: Map<string, any[]> = new Map();
 
   private constructor() {
     this.bucketName = process.env.SUPABASE_STORAGE_BUCKET || 'ngo-evidence';
@@ -154,11 +172,19 @@ export class EvidenceVaultService {
       throw err;
     }
 
-    // 2. MIME type validation
+    // 2. MIME type & file signature validation (detects spoofed extensions)
     if (!ALLOWED_MIME_TYPES.has(mimeType.toLowerCase())) {
       const err: any = new Error(`Unsupported file type: ${mimeType}. Allowed formats: PDF, JPEG, PNG, WEBP`);
       err.statusCode = 415;
       err.code = 'UNSUPPORTED_MEDIA_TYPE';
+      throw err;
+    }
+
+    const sigResult = FileSignatureValidator.validate(buffer);
+    if (!sigResult.valid) {
+      const err: any = new Error(`File signature validation failed: ${sigResult.error}`);
+      err.statusCode = 400;
+      err.code = 'INVALID_FILE_SIGNATURE';
       throw err;
     }
 
@@ -224,7 +250,7 @@ export class EvidenceVaultService {
       id: evidenceId,
       storageKey,
       originalFilename,
-      mimeType,
+      mimeType: sigResult.detectedMimeType || mimeType,
       sizeBytes: buffer.length,
       sha256: serverSha256,
       organizationId,
@@ -232,6 +258,11 @@ export class EvidenceVaultService {
       uploaderRole: user.role,
       claimId,
       verificationStatus: hashMismatchDetected ? 'TAMPERED' : 'VERIFIED',
+      pipelineStatus: 'QUEUED',
+      ocrStatus: 'PENDING',
+      duplicateStatus: 'NO_MATCH_FOUND',
+      forensicRiskLevel: 'LOW',
+      reviewDecision: 'PENDING',
       storageProvider,
       uploadedAt: now,
       updatedAt: now,
@@ -239,6 +270,22 @@ export class EvidenceVaultService {
 
     this.metadataStore.set(evidenceId, record);
     this.savePersistentMetadata();
+
+    // 8. Asynchronously enqueue for background OCR & Forensics pipeline
+    try {
+      const queue = EvidenceQueueService.getInstance();
+      await queue.enqueueEvidence({
+        evidenceId,
+        storageKey,
+        organizationId,
+        mimeType: sigResult.detectedMimeType || mimeType,
+        filename: originalFilename,
+        sha256: serverSha256,
+        enqueuedAt: now,
+      });
+    } catch (qErr: any) {
+      console.warn(`[EvidenceVault] Background processing enqueue note: ${qErr.message}`);
+    }
 
     return {
       evidence: record,
@@ -430,5 +477,134 @@ export class EvidenceVaultService {
     return Array.from(this.metadataStore.values()).filter(
       (doc) => doc.organizationId === user.organizationId
     );
+  }
+
+  // --- OCR Extraction, Forensics & Duplicate Candidate Accessors ---
+
+  public getExtraction(id: string): OcrExtractionResult | null {
+    return this.extractions.get(id) || null;
+  }
+
+  public getForensics(id: string): ForensicAnalysisResult | null {
+    return this.forensics.get(id) || null;
+  }
+
+  public getDuplicates(id: string): DuplicateCandidate[] {
+    return this.duplicateCandidates.get(id) || [];
+  }
+
+  public saveProcessingResults(
+    evidenceId: string,
+    results: {
+      pipelineStatus: EvidenceRecord['pipelineStatus'];
+      ocrStatus: EvidenceRecord['ocrStatus'];
+      duplicateStatus: EvidenceRecord['duplicateStatus'];
+      forensicRiskLevel: EvidenceRecord['forensicRiskLevel'];
+      extraction: OcrExtractionResult;
+      forensics: ForensicAnalysisResult;
+      duplicateCandidates: DuplicateCandidate[];
+    }
+  ): void {
+    const doc = this.metadataStore.get(evidenceId);
+    if (doc) {
+      doc.pipelineStatus = results.pipelineStatus;
+      doc.ocrStatus = results.ocrStatus;
+      doc.duplicateStatus = results.duplicateStatus;
+      doc.forensicRiskLevel = results.forensicRiskLevel;
+      doc.updatedAt = new Date().toISOString();
+      this.savePersistentMetadata();
+    }
+    this.extractions.set(evidenceId, results.extraction);
+    this.forensics.set(evidenceId, results.forensics);
+    this.duplicateCandidates.set(evidenceId, results.duplicateCandidates);
+  }
+
+  public updatePipelineStatus(evidenceId: string, updates: Partial<EvidenceRecord>): void {
+    const doc = this.metadataStore.get(evidenceId);
+    if (doc) {
+      Object.assign(doc, updates, { updatedAt: new Date().toISOString() });
+      this.savePersistentMetadata();
+    }
+  }
+
+  public recordReviewDecision(
+    id: string,
+    decision: 'GENUINE' | 'SUSPICIOUS' | 'INCONCLUSIVE',
+    reviewer: AuthUser,
+    notes?: string
+  ): EvidenceRecord {
+    const doc = this.metadataStore.get(id);
+    if (!doc) {
+      throw new Error(`Evidence document not found: ${id}`);
+    }
+    doc.reviewDecision = decision;
+    doc.reviewedBy = reviewer.sub;
+    doc.reviewedAt = new Date().toISOString();
+    doc.reviewNotes = notes;
+    doc.pipelineStatus = 'COMPLETED';
+    doc.updatedAt = new Date().toISOString();
+    this.savePersistentMetadata();
+    return doc;
+  }
+
+  public applyCorrection(
+    id: string,
+    corrections: Record<string, any>,
+    reviewer: AuthUser
+  ): {
+    success: boolean;
+    extraction: OcrExtractionResult;
+  } {
+    const extraction = this.extractions.get(id);
+    if (!extraction) {
+      throw new Error(`No extraction available for document: ${id}`);
+    }
+
+    const existingCorrections = this.userCorrections.get(id) || [];
+    const now = new Date().toISOString();
+
+    for (const [key, val] of Object.entries(corrections)) {
+      const prevField = (extraction.fields as any)[key];
+      const prevVal = prevField ? prevField.value : undefined;
+
+      existingCorrections.push({
+        field: key,
+        previousValue: prevVal,
+        correctedValue: val,
+        correctedBy: reviewer.sub,
+        correctedAt: now,
+      });
+
+      (extraction.fields as any)[key] = {
+        value: val,
+        confidence: 1.0,
+        status: 'USER_CONFIRMED',
+      };
+    }
+
+    this.userCorrections.set(id, existingCorrections);
+    return { success: true, extraction };
+  }
+
+  public getUserCorrections(id: string): any[] {
+    return this.userCorrections.get(id) || [];
+  }
+
+  public getAllEvidenceForDuplicates(): ExistingEvidenceRecord[] {
+    const records: ExistingEvidenceRecord[] = [];
+    for (const doc of this.metadataStore.values()) {
+      const ext = this.extractions.get(doc.id);
+      records.push({
+        id: doc.id,
+        sha256: doc.sha256,
+        organizationId: doc.organizationId,
+        vendorName: ext?.fields?.vendorName?.value,
+        vendorGstin: ext?.fields?.vendorGstin?.value,
+        invoiceNumber: ext?.fields?.invoiceNumber?.value,
+        invoiceDate: ext?.fields?.invoiceDate?.value,
+        totalAmountPaise: ext?.fields?.totalAmountPaise?.value,
+      });
+    }
+    return records;
   }
 }
