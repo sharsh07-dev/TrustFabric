@@ -26,33 +26,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   return (
     <div className="tf-landing-root">
-      {/* Top Utility Banner for Immediate Navigation to Dashboard */}
-      <div style={{ background: '#0f172a', color: '#94a3b8', padding: '6px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', borderBottom: '1px solid #1e293b' }}>
-        <div>
-          <span>🛡️ <strong>TrustFabric Showcase</strong> &bull; Built with Reference Theme (ref1.png &amp; ref2.png)</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button
-            onClick={() => onNavigate('overview')}
-            style={{
-              background: '#FFB800',
-              color: '#0f172a',
-              fontWeight: 750,
-              fontSize: '11px',
-              padding: '4px 12px',
-              borderRadius: '4px',
-              border: 'none',
-              cursor: 'pointer',
-              letterSpacing: '0.3px'
-            }}
-          >
-            ← Open Operations Dashboard
-          </button>
-        </div>
-      </div>
-
       {/* ===================================================================
-          Top Navigation Header (ref1.png)
+          Top Navigation Header
           =================================================================== */}
       <header className="tf-landing-nav">
         <div className="tf-container">
@@ -72,11 +47,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 Live Donation
               </button>
               <button
-                className="tf-nav-link"
+                className="tf-nav-link tf-nav-link-highlight"
                 onClick={() => onNavigate('ngoverify')}
-                style={{ color: '#b45309', fontWeight: 750 }}
               >
-                NGO Verification 🛡️
+                NGO Verification
+                <span className="tf-nav-live-dot"></span>
               </button>
               <button className="tf-nav-link" onClick={() => onNavigate('grants')}>
                 Grants & Policies
@@ -90,21 +65,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </nav>
 
             <div className="tf-nav-actions">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '8px' }}>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>ROLE:</span>
+              <div className="tf-nav-role-box">
+                <span className="tf-nav-role-label">ROLE</span>
                 <select
                   value={currentUserRole}
                   onChange={(e) => onRoleChange(e.target.value as UserRole)}
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    padding: '4px 8px',
-                    borderRadius: '4px',
-                    border: '1px solid #cbd5e1',
-                    background: '#ffffff',
-                    color: '#0f172a',
-                    cursor: 'pointer',
-                  }}
+                  className="tf-nav-role-select"
                 >
                   <option value="DONOR">Aarav (Donor)</option>
                   <option value="NGO_ADMIN">Meera (NGO Admin)</option>
@@ -124,9 +90,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <button
                 className="tf-btn-secondary"
                 onClick={() => onNavigate('overview')}
-                title="Open Administrative Dashboard"
+                title="Open Operations Dashboard"
               >
-                LAUNCH CONSOLE
+                OPERATIONS CONSOLE →
               </button>
             </div>
           </div>

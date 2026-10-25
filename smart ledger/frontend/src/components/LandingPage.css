@@ -42,22 +42,24 @@
 }
 
 /* ==========================================================================
-   Navigation Header (ref1.png)
+   Navigation Header
    ========================================================================== */
 .tf-landing-nav {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid #f1f5f9;
-  padding: 16px 0;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 12px 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .tf-nav-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 24px;
 }
 
 .tf-nav-brand {
@@ -66,25 +68,28 @@
   gap: 10px;
   cursor: pointer;
   text-decoration: none;
+  flex-shrink: 0;
+  margin-right: 12px;
 }
 
 .tf-nav-logo-badge {
   width: 36px;
   height: 36px;
   background: linear-gradient(135deg, #FFB800 0%, #F5A623 100%);
-  border-radius: 8px;
+  border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 19px;
   box-shadow: 0 2px 8px rgba(245, 166, 35, 0.3);
 }
 
 .tf-nav-brand-text {
-  font-size: 20px;
+  font-size: 21px;
   font-weight: 800;
   color: #0f172a;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.6px;
+  white-space: nowrap;
 }
 
 .tf-nav-brand-text span {
@@ -94,51 +99,111 @@
 .tf-nav-links {
   display: flex;
   align-items: center;
-  gap: 32px;
+  gap: 8px;
+  flex-wrap: nowrap;
 }
 
 .tf-nav-link {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 13.5px;
+  font-weight: 550;
   color: #475569;
   text-decoration: none;
-  transition: color 0.15s ease;
+  transition: all 0.15s ease;
   cursor: pointer;
   background: none;
   border: none;
-  padding: 4px 0;
+  padding: 8px 12px;
+  border-radius: 6px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.tf-nav-link:hover,
+.tf-nav-link:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+}
+
 .tf-nav-link.active {
   color: #0f172a;
-  font-weight: 600;
+  background: #f1f5f9;
+  font-weight: 650;
+}
+
+.tf-nav-link-highlight {
+  color: #b45309 !important;
+  font-weight: 650 !important;
+}
+
+.tf-nav-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10B981;
+  display: inline-block;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+  animation: tf-pulse 2s infinite;
+}
+
+@keyframes tf-pulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
 }
 
 .tf-nav-actions {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
+  flex-shrink: 0;
 }
 
-/* Golden Amber Button (ref1.png & ref2.png) */
+.tf-nav-role-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 4px 10px;
+}
+
+.tf-nav-role-label {
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.tf-nav-role-select {
+  font-size: 11.5px;
+  font-weight: 650;
+  border: none;
+  background: transparent;
+  color: #0f172a;
+  cursor: pointer;
+  outline: none;
+}
+
+/* Golden Amber Button */
 .tf-btn-amber {
   background: linear-gradient(180deg, #FFB800 0%, #F5A623 100%);
   color: #0f172a;
-  font-weight: 700;
-  font-size: 13px;
-  letter-spacing: 0.5px;
-  padding: 11px 24px;
-  border-radius: 6px;
+  font-weight: 750;
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  padding: 9px 18px;
+  border-radius: 7px;
   border: none;
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(245, 166, 35, 0.35);
   transition: all 0.2s ease;
   text-transform: uppercase;
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
 }
 
 .tf-btn-amber:hover {
@@ -151,28 +216,31 @@
   transform: translateY(0);
 }
 
-/* Secondary Button (ref1.png) */
+/* Secondary Button -> Operations Console */
 .tf-btn-secondary {
-  background: #f1f5f9;
-  color: #334155;
-  font-weight: 600;
-  font-size: 13px;
-  letter-spacing: 0.5px;
-  padding: 11px 22px;
-  border-radius: 6px;
-  border: 1px solid #e2e8f0;
+  background: #0f172a;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  padding: 9px 18px;
+  border-radius: 7px;
+  border: 1px solid #0f172a;
   cursor: pointer;
   transition: all 0.2s ease;
   text-transform: uppercase;
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
 }
 
 .tf-btn-secondary:hover {
-  background: #e2e8f0;
-  color: #0f172a;
+  background: #1e293b;
+  border-color: #1e293b;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.2);
 }
 
 /* ==========================================================================
