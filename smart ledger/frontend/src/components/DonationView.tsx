@@ -73,12 +73,16 @@ export const DonationView: React.FC<DonationViewProps> = ({
   useEffect(() => {
     async function initData() {
       try {
-        const [pubConfig, grantList] = await Promise.all([
+        const [pubConfig, grantList, initialDonations] = await Promise.all([
           paymentService.getPublicConfig(),
           paymentService.getEligibleGrants(),
+          paymentService.getPublicDonations(),
         ]);
         setConfig(pubConfig);
         setGrants(grantList);
+        if (initialDonations && initialDonations.length > 0) {
+          setRtdbDonations(initialDonations);
+        }
         if (grantList.length > 0) {
           setSelectedGrantId(grantList[0].id);
         }
@@ -98,7 +102,15 @@ export const DonationView: React.FC<DonationViewProps> = ({
 
     // 2. Subscribe to Realtime Public Donations Feed
     const unsubDon = firebaseClient.subscribeToPublicDonations(donations => {
-      setRtdbDonations(donations);
+      if (donations && donations.length > 0) {
+        setRtdbDonations(donations);
+      } else {
+        paymentService.getPublicDonations().then(serverDons => {
+          if (serverDons && serverDons.length > 0) {
+            setRtdbDonations(serverDons);
+          }
+        }).catch(() => {});
+      }
       setLastRtdbSyncTime(new Date().toLocaleTimeString());
     });
 

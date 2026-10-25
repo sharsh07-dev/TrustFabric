@@ -109,6 +109,22 @@ export interface ProofPackageResponse {
   };
 }
 
+async function apiFetch(path: string, options?: RequestInit): Promise<Response> {
+  try {
+    const res = await fetch(path, options);
+    if (res.status === 404 && !path.startsWith('http')) {
+      const fallbackUrl = `http://localhost:5001${path}`;
+      return await fetch(fallbackUrl, options);
+    }
+    return res;
+  } catch {
+    if (!path.startsWith('http')) {
+      return await fetch(`http://localhost:5001${path}`, options);
+    }
+    throw new Error('Network request failed');
+  }
+}
+
 export class PaymentService {
   private static instance: PaymentService;
   private configCache: PublicPaymentConfig | null = null;
@@ -123,7 +139,7 @@ export class PaymentService {
   public async getPublicConfig(): Promise<PublicPaymentConfig> {
     if (this.configCache) return this.configCache;
     try {
-      const resp = await fetch('/api/config/public');
+      const resp = await apiFetch('/api/config/public');
       if (!resp.ok) throw new Error(`Config fetch failed (${resp.status})`);
       this.configCache = await resp.json();
       return this.configCache!;
@@ -147,7 +163,7 @@ export class PaymentService {
 
   public async getEligibleGrants(): Promise<PaymentGrant[]> {
     try {
-      const resp = await fetch('/api/grants');
+      const resp = await apiFetch('/api/grants');
       if (!resp.ok) throw new Error(`Grants fetch failed (${resp.status})`);
       const data = await resp.json();
       return data.grants;
@@ -177,6 +193,17 @@ export class PaymentService {
     }
   }
 
+  public async getPublicDonations(): Promise<any[]> {
+    try {
+      const resp = await apiFetch('/api/donations');
+      if (!resp.ok) return [];
+      const data = await resp.json();
+      return data.donations || [];
+    } catch {
+      return [];
+    }
+  }
+
   public async createOrder(params: {
     grantId: string;
     amountPaise: number;
@@ -184,7 +211,7 @@ export class PaymentService {
     donorEmail?: string;
     donorContact?: string;
   }): Promise<DonationOrderResponse> {
-    const resp = await fetch('/api/payments/razorpay/orders', {
+    const resp = await apiFetch('/api/payments/razorpay/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -203,7 +230,7 @@ export class PaymentService {
     paymentId: string;
     signature: string;
   }): Promise<VerificationResponse> {
-    const resp = await fetch('/api/payments/razorpay/verify', {
+    const resp = await apiFetch('/api/payments/razorpay/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -218,7 +245,7 @@ export class PaymentService {
   }
 
   public async getDonationProof(donationId: string): Promise<ProofPackageResponse> {
-    const resp = await fetch(`/api/donations/${donationId}/proof`);
+    const resp = await apiFetch(`/api/donations/${donationId}/proof`);
     if (!resp.ok) {
       throw new Error(`Failed to load proof package: HTTP ${resp.status}`);
     }
@@ -226,7 +253,7 @@ export class PaymentService {
   }
 
   public async retryAnchor(donationId: string): Promise<any> {
-    const resp = await fetch(`/api/donations/${donationId}/retry-anchor`, {
+    const resp = await apiFetch(`/api/donations/${donationId}/retry-anchor`, {
       method: 'POST',
     });
     if (!resp.ok) {

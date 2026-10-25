@@ -40,6 +40,32 @@ paymentRouter.get('/grants', (_req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/donations
+ * Returns public feed of donations and onchain anchors from server ledger
+ */
+paymentRouter.get('/donations', (_req: Request, res: Response) => {
+  const donations = Array.from(db.donationIntents.values()).map(intent => {
+    const anchor = db.getAnchorByDonationId(intent.id);
+    return {
+      donationId: intent.id,
+      donationCode: intent.donationCode,
+      campaignId: intent.grantId,
+      amountPaise: intent.amountPaise,
+      currency: intent.currency,
+      status: intent.state,
+      provenance: intent.environment === 'TEST' ? 'RAZORPAY_TEST_CAPTURED' : 'RAZORPAY_LIVE_CAPTURED',
+      razorpayPaymentId: intent.razorpayPaymentId,
+      txHash: anchor?.txHash,
+      blockNumber: anchor?.blockNumber,
+      explorerUrl: anchor?.explorerUrl,
+      createdAt: intent.createdAt,
+      anchoredAt: anchor?.createdAt,
+    };
+  });
+  res.json({ donations });
+});
+
+/**
  * POST /api/payments/razorpay/orders
  * Creates an authorized server-side Razorpay order
  */

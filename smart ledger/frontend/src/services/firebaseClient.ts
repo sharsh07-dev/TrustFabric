@@ -129,7 +129,7 @@ export class FirebaseClient {
           callback(list);
         },
         error => {
-          console.warn('[FirebaseClient] Donations listen notice:', error.message);
+          console.info(`[FirebaseClient] Remote RTDB restricted by cloud rules (${error.message}); active feed provided via TrustFabric server.`);
           callback([]);
         }
       );
