@@ -17,6 +17,7 @@ datasource db {
 // -------------------------------------------------------------
 model User {
   id             String          @id @default(uuid())
+  clerkUserId    String?         @unique
   email          String          @unique
   name           String
   role           String          // 'DONOR' | 'ADMIN' | 'AUDITOR' | 'FIELD_WORKER' | 'VENDOR'

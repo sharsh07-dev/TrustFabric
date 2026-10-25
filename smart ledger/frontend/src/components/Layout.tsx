@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { SignInButton, SignUpButton, UserButton, useUser, useAuth } from '@clerk/react';
+import { AuthService } from '../services/authService';
 import { type UserRole } from '../types/trustfabric';
 
 export type NavTab =
@@ -42,6 +44,18 @@ export const Layout: React.FC<LayoutProps> = ({
 }) => {
   const [showEnvPopover, setShowEnvPopover] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+
+  // Clerk Authentication Hooks
+  const { user: clerkUser } = useUser();
+  const { getToken, isSignedIn } = useAuth();
+
+  useEffect(() => {
+    if (isSignedIn && clerkUser && getToken) {
+      AuthService.getInstance().syncClerkSession(getToken, clerkUser).catch((err) => {
+        console.warn('Clerk session sync error:', err);
+      });
+    }
+  }, [isSignedIn, clerkUser, getToken]);
 
   return (
     <div className="app-shell">
@@ -167,13 +181,40 @@ export const Layout: React.FC<LayoutProps> = ({
         </nav>
 
         <div className="sidebar-footer">
+          {isSignedIn ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', background: 'rgba(255,255,255,0.06)', borderRadius: '6px', marginBottom: '8px' }}>
+              <UserButton />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '11.5px', fontWeight: 600, color: '#FFFFFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {clerkUser?.fullName || clerkUser?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'Clerk User'}
+                </div>
+                <div style={{ fontSize: '9.5px', color: '#10B981', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  <span>●</span> <span>Clerk ID ({currentUserRole})</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+              <SignInButton mode="modal">
+                <button className="btn btn-primary" style={{ flex: 1, fontSize: '11px', padding: '5px' }}>
+                  Sign In
+                </button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <button className="btn btn-secondary" style={{ flex: 1, fontSize: '11px', padding: '5px' }}>
+                  Sign Up
+                </button>
+              </SignUpButton>
+            </div>
+          )}
+
           <div className="role-switcher-box">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
               <span style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-on-dark-dim)' }}>
                 Authenticated Role:
               </span>
-              <span style={{ fontSize: '9px', background: '#10B981', color: '#ffffff', fontWeight: 800, padding: '1px 5px', borderRadius: '4px' }}>
-                JWT HS256
+              <span style={{ fontSize: '9px', background: '#3B82F6', color: '#ffffff', fontWeight: 800, padding: '1px 5px', borderRadius: '4px' }}>
+                Clerk RBAC
               </span>
             </div>
             <select
@@ -225,7 +266,29 @@ export const Layout: React.FC<LayoutProps> = ({
             </h1>
           </div>
 
-          <div className="page-actions" style={{ position: 'relative' }}>
+          <div className="page-actions" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {isSignedIn ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                  {clerkUser?.primaryEmailAddress?.emailAddress}
+                </span>
+                <UserButton />
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <SignInButton mode="modal">
+                  <button className="btn btn-primary" style={{ padding: '4px 10px', fontSize: '11px' }}>
+                    Sign In
+                  </button>
+                </SignInButton>
+                <SignUpButton mode="modal">
+                  <button className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '11px' }}>
+                    Sign Up
+                  </button>
+                </SignUpButton>
+              </div>
+            )}
+
             <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span>Updated {lastUpdated}</span>
               <button

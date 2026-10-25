@@ -189,6 +189,7 @@ export type UserRole = 'ADMIN' | 'FINANCE_OFFICER' | 'AUDITOR' | 'DONOR' | 'FIEL
 
 export interface AuthUser {
   id: string;
+  clerkUserId?: string;
   name: string;
   email: string;
   role: UserRole;

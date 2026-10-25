@@ -9,6 +9,7 @@ import { dbRoutes } from './routes/dbRoutes.js';
 import { evidenceRoutes } from './routes/evidenceRoutes.js';
 import { anchorRoutes } from './routes/anchorRoutes.js';
 import { RealtimeSocketService } from './services/realtimeSocketService.js';
+import { clerkMiddleware } from '@clerk/express';
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -22,11 +23,11 @@ app.use(
   cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-razorpay-signature'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-razorpay-signature', 'svix-id', 'svix-timestamp', 'svix-signature'],
   })
 );
 
-// Capture raw body for webhook HMAC validation while still parsing JSON
+// Capture raw body for webhook HMAC and Svix validation while still parsing JSON
 app.use(
   express.json({
     verify: (req: any, _res, buf) => {
@@ -34,6 +35,11 @@ app.use(
     },
   })
 );
+
+// Mount Clerk authentication middleware when secret key is configured
+if (process.env.CLERK_SECRET_KEY) {
+  app.use(clerkMiddleware());
+}
 
 // Health check endpoint
 app.get('/api/health', (_req, res) => {

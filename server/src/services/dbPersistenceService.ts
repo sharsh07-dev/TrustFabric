@@ -10,6 +10,7 @@ import type {
 
 export interface DbUserRecord {
   id: string;
+  clerkUserId?: string;
   email: string;
   name: string;
   role: UserRole;
@@ -232,6 +233,83 @@ export class DbPersistenceService {
       if (u.email.toLowerCase() === email.toLowerCase()) return u;
     }
     return undefined;
+  }
+
+  public async getUserByClerkId(clerkUserId: string): Promise<DbUserRecord | undefined> {
+    if (this.isConnectedToPostgres && this.prismaClient) {
+      return (await this.prismaClient.user.findUnique({ where: { clerkUserId } })) || undefined;
+    }
+    for (const u of this.usersTable.values()) {
+      if (u.clerkUserId === clerkUserId) return u;
+    }
+    return undefined;
+  }
+
+  /**
+   * Resolves or provisions a local application user from verified Clerk identity.
+   * If an existing user matches by email or clerkUserId, links the clerkUserId.
+   * New signups are strictly granted the least-privilege default role 'DONOR'.
+   */
+  public async syncClerkUser(params: {
+    clerkUserId: string;
+    email: string;
+    name?: string;
+  }): Promise<DbUserRecord> {
+    const { clerkUserId, email, name } = params;
+    const now = new Date().toISOString();
+
+    // 1. Check if user already exists by clerkUserId
+    const existingByClerk = await this.getUserByClerkId(clerkUserId);
+    if (existingByClerk) {
+      return existingByClerk;
+    }
+
+    // 2. Check if user already exists by email (safe identity mapping)
+    const existingByEmail = await this.getUserByEmail(email);
+    if (existingByEmail) {
+      const updated: DbUserRecord = {
+        ...existingByEmail,
+        clerkUserId,
+        name: name || existingByEmail.name,
+        updatedAt: now,
+      };
+
+      if (this.isConnectedToPostgres && this.prismaClient) {
+        await this.prismaClient.user.update({
+          where: { id: existingByEmail.id },
+          data: { clerkUserId, updatedAt: new Date() },
+        });
+      }
+      this.usersTable.set(updated.id, updated);
+      return updated;
+    }
+
+    // 3. New user signup - strictly assign default DONOR role (never ADMIN or NGO-owner)
+    const newUser: DbUserRecord = {
+      id: `usr-clerk-${crypto.randomBytes(6).toString('hex')}`,
+      clerkUserId,
+      email: email.toLowerCase(),
+      name: name || email.split('@')[0],
+      role: 'DONOR',
+      organizationId: 'org-individual-donors',
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    if (this.isConnectedToPostgres && this.prismaClient) {
+      await this.prismaClient.user.create({
+        data: {
+          id: newUser.id,
+          clerkUserId: newUser.clerkUserId,
+          email: newUser.email,
+          name: newUser.name,
+          role: newUser.role,
+          organizationId: newUser.organizationId,
+        },
+      });
+    }
+    this.usersTable.set(newUser.id, newUser);
+    return newUser;
   }
 
   public async getAllUsers(): Promise<DbUserRecord[]> {

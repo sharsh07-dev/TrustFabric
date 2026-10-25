@@ -1,7 +1,9 @@
 import type { Request, Response, NextFunction } from 'express';
+import { ClerkService } from '../services/clerkService.js';
 import { JwtService } from '../services/jwtService.js';
 import type { AuthUser, UserRole } from '../types.js';
 
+const clerkService = ClerkService.getInstance();
 const jwtService = JwtService.getInstance();
 
 export interface AuthenticatedRequest extends Request {
@@ -27,20 +29,45 @@ export function extractBearerToken(req: Request): string | null {
 }
 
 /**
- * Middleware: Requires a valid JWT Bearer token
+ * Verifies authentication token:
+ * First attempts Clerk session verification via Clerk backend SDK.
+ * Falls back to cryptographic JWT service for automated tests & seeded personas.
+ * NEVER derives identity from unauthenticated request body.
+ */
+export async function verifyUserToken(token: string): Promise<{ valid: boolean; user?: AuthUser; error?: string }> {
+  // 1. Try Clerk session token verification
+  const clerkResult = await clerkService.verifySessionToken(token);
+  if (clerkResult.valid && clerkResult.user) {
+    return clerkResult;
+  }
+
+  // 2. Cryptographic JWT verification for automated test suites and personas
+  const jwtResult = jwtService.verifyToken(token);
+  if (jwtResult.valid && jwtResult.user) {
+    return jwtResult;
+  }
+
+  return {
+    valid: false,
+    error: clerkResult.error || jwtResult.error || 'Invalid session credentials',
+  };
+}
+
+/**
+ * Middleware: Requires a valid Bearer token (Clerk or signed system token)
  * Returns 401 Unauthorized if missing or invalid
  */
-export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+export async function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
   const token = extractBearerToken(req);
   if (!token) {
     res.status(401).json({
-      error: 'UNAUTHORIZED: Missing or malformed Authorization header. Expected format: Bearer <jwt_token>',
+      error: 'UNAUTHORIZED: Missing or malformed Authorization header. Expected format: Bearer <token>',
       code: 'AUTH_REQUIRED',
     });
     return;
   }
 
-  const result = jwtService.verifyToken(token);
+  const result = await verifyUserToken(token);
   if (!result.valid || !result.user) {
     res.status(401).json({
       error: `UNAUTHORIZED: ${result.error || 'Invalid session credentials'}`,
@@ -55,41 +82,30 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
 
 /**
  * Middleware: Enforces Role-Based Access Control (RBAC)
- * Returns 403 Forbidden if the authenticated user's role is not authorized for the operation
+ * Returns 401 Unauthorized if unauthenticated, and 403 Forbidden if the authenticated user's role is not authorized.
+ * Strict: Never trusts client-supplied reviewerRole or authorizerRole from request body.
  */
 export function requireRoles(...allowedRoles: UserRole[]) {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
-    // If auth header was provided, evaluate user
+  return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     if (!req.user) {
       const token = extractBearerToken(req);
-      if (token) {
-        const result = jwtService.verifyToken(token);
-        if (!result.valid || !result.user) {
-          res.status(401).json({
-            error: `UNAUTHORIZED: ${result.error || 'Invalid session token.'}`,
-            code: 'TOKEN_INVALID',
-          });
-          return;
-        }
-        req.user = result.user;
-      } else {
-        // Fallback to body-specified role if token omitted
-        const bodyRole = (req.body?.reviewerRole || req.body?.authorizerRole) as UserRole | undefined;
-        if (bodyRole) {
-          req.user = {
-            id: `usr-${bodyRole.toLowerCase()}`,
-            name: req.body?.reviewer || req.body?.authorizerName || `Officer (${bodyRole})`,
-            email: `${bodyRole.toLowerCase()}@trustfabric.org`,
-            role: bodyRole,
-          };
-        } else {
-          res.status(401).json({
-            error: 'UNAUTHORIZED: Authentication token required to access this privileged endpoint.',
-            code: 'AUTH_REQUIRED',
-          });
-          return;
-        }
+      if (!token) {
+        res.status(401).json({
+          error: 'UNAUTHORIZED: Authentication token required to access this privileged endpoint.',
+          code: 'AUTH_REQUIRED',
+        });
+        return;
       }
+
+      const result = await verifyUserToken(token);
+      if (!result.valid || !result.user) {
+        res.status(401).json({
+          error: `UNAUTHORIZED: ${result.error || 'Invalid session token.'}`,
+          code: 'TOKEN_INVALID',
+        });
+        return;
+      }
+      req.user = result.user;
     }
 
     if (!allowedRoles.includes(req.user.role)) {

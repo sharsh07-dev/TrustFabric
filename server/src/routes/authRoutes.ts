@@ -1,10 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { JwtService } from '../services/jwtService.js';
+import { ClerkService } from '../services/clerkService.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/authMiddleware.js';
+import { DbPersistenceService } from '../services/dbPersistenceService.js';
 import type { AuthUser, UserRole } from '../types.js';
 
 export const authRouter = Router();
 const jwtService = JwtService.getInstance();
+const clerkService = ClerkService.getInstance();
+const dbPersistence = DbPersistenceService.getInstance();
 
 export const STANDARD_PERSONAS: Record<string, AuthUser> = {
   AARAV_DONOR: {
@@ -48,6 +52,7 @@ authRouter.get('/auth/personas', (_req: Request, res: Response) => {
 /**
  * POST /api/auth/login
  * Issues cryptographically signed JWT for credentials or chosen persona
+ * (Maintained for backward compatibility and automated unit tests)
  */
 authRouter.post('/auth/login', (req: Request, res: Response): void => {
   const { persona, personaKey, email, role, name } = req.body;
@@ -89,6 +94,32 @@ authRouter.post('/auth/login', (req: Request, res: Response): void => {
 });
 
 /**
+ * POST /api/auth/clerk-sync
+ * Synchronizes authenticated Clerk session with PostgreSQL/Prisma user table.
+ * Strictly derives identity from verified token; never from request body.
+ */
+authRouter.post('/auth/clerk-sync', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const authUser = req.user!;
+  
+  // Ensure user is mapped in DB persistence service
+  let dbUser = authUser.clerkUserId ? await dbPersistence.getUserByClerkId(authUser.clerkUserId) : undefined;
+  if (!dbUser && authUser.email) {
+    dbUser = await dbPersistence.getUserByEmail(authUser.email);
+  }
+
+  res.json({
+    success: true,
+    user: dbUser || authUser,
+    permissions: {
+      canReviewApplications: ['ADMIN', 'AUDITOR'].includes(authUser.role),
+      canAuthorizeEscrow: ['ADMIN', 'AUDITOR', 'FINANCE_OFFICER'].includes(authUser.role),
+      canDonate: true,
+      canSubmitClaims: ['ADMIN', 'FIELD_WORKER'].includes(authUser.role),
+    },
+  });
+});
+
+/**
  * GET /api/auth/me
  * Validates active Bearer token and returns current user profile & permissions
  */
@@ -103,4 +134,26 @@ authRouter.get('/auth/me', requireAuth, (req: AuthenticatedRequest, res: Respons
       canSubmitClaims: ['ADMIN', 'FIELD_WORKER'].includes(req.user!.role),
     },
   });
+});
+
+/**
+ * POST /api/webhooks/clerk
+ * Handles Clerk lifecycle webhooks (user.created, user.updated, user.deleted)
+ * Verifies Svix signature for tamper resistance and processes events idempotently.
+ */
+authRouter.post('/webhooks/clerk', async (req: Request, res: Response): Promise<void> => {
+  const headers = req.headers as Record<string, string | string[] | undefined>;
+  const rawBody = (req as any).rawBody ? (req as any).rawBody.toString('utf8') : JSON.stringify(req.body);
+
+  try {
+    const { payload, svixId } = clerkService.verifyWebhook(headers, rawBody);
+    const eventType = payload.type;
+    const eventData = payload.data;
+
+    const result = await clerkService.handleWebhookEvent(svixId, eventType, eventData);
+    res.status(200).json({ success: true, ...result });
+  } catch (err: any) {
+    console.error('[Clerk Webhook] Signature verification failed:', err.message);
+    res.status(400).json({ error: `Webhook verification failed: ${err.message}` });
+  }
 });

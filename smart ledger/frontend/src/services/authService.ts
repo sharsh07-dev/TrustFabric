@@ -1,13 +1,14 @@
 /**
- * TrustFabric Client Authentication & JWT Bearer Token Service
- * Manages active cryptographic JWT sessions, user personas, and RBAC token injection
- * Satisfies CASCADE '26 Theme 4 Problem 4.2 RBAC & Multi-User Requirements.
+ * TrustFabric Client Authentication & Clerk Session Integration Service
+ * Manages active cryptographic Clerk session tokens and application persona state.
+ * Preserves RBAC token injection across all TrustFabric API requests.
  */
 
 import { type UserRole } from '../types/trustfabric';
 
 export interface AuthUser {
   id: string;
+  clerkUserId?: string;
   name: string;
   email: string;
   role: UserRole;
@@ -24,18 +25,17 @@ export interface LoginResponse {
   message: string;
 }
 
-const TOKEN_KEY = 'trustfabric_jwt_token';
-const USER_KEY = 'trustfabric_current_user';
 const API_BASE = 'http://localhost:5001/api';
 
 export class AuthService {
   private static instance: AuthService;
   private currentToken: string | null = null;
   private currentUser: AuthUser | null = null;
+  private tokenGetter: (() => Promise<string | null>) | null = null;
   private subscribers: Array<(user: AuthUser | null) => void> = [];
 
   private constructor() {
-    this.restoreSession();
+    this.initializeDefaultSession('DONOR');
   }
 
   public static getInstance(): AuthService {
@@ -43,25 +43,6 @@ export class AuthService {
       AuthService.instance = new AuthService();
     }
     return AuthService.instance;
-  }
-
-  private restoreSession(): void {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const savedToken = localStorage.getItem(TOKEN_KEY);
-        const savedUser = localStorage.getItem(USER_KEY);
-        if (savedToken && savedUser) {
-          this.currentToken = savedToken;
-          this.currentUser = JSON.parse(savedUser) as AuthUser;
-          return;
-        }
-      }
-    } catch {
-      // Fallback to fresh session
-    }
-
-    // Default to Aarav (Donor) demo session
-    this.initializeDefaultSession('DONOR');
   }
 
   public initializeDefaultSession(role: UserRole = 'DONOR'): void {
@@ -98,13 +79,65 @@ export class AuthService {
 
     const user = defaultPersonas[role] || defaultPersonas.DONOR;
     this.currentUser = user;
-
-    // Login asynchronously to fetch signed server JWT
     this.loginWithRole(role).catch(() => {});
   }
 
   /**
-   * Logs in with a specific persona role and retrieves a signed server JWT
+   * Links active Clerk session and user into AuthService
+   */
+  public async syncClerkSession(
+    tokenGetter: () => Promise<string | null>,
+    clerkUser: any
+  ): Promise<void> {
+    this.tokenGetter = tokenGetter;
+    try {
+      const token = await tokenGetter();
+      if (token) {
+        this.currentToken = token;
+
+        // Sync with backend to resolve local PostgreSQL user role & organization
+        const res = await fetch(`${API_BASE}/auth/clerk-sync`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user) {
+            this.currentUser = {
+              id: data.user.id,
+              clerkUserId: clerkUser.id,
+              name: data.user.name || clerkUser.fullName || clerkUser.username || 'Clerk User',
+              email: data.user.email || clerkUser.primaryEmailAddress?.emailAddress || '',
+              role: (data.user.role as UserRole) || 'DONOR',
+              organizationId: data.user.organizationId,
+            };
+            this.notifySubscribers();
+            return;
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn('[AuthService] Clerk backend sync fallback:', err.message);
+    }
+
+    if (clerkUser) {
+      this.currentUser = {
+        id: clerkUser.id,
+        clerkUserId: clerkUser.id,
+        name: clerkUser.fullName || clerkUser.firstName || clerkUser.username || 'Clerk User',
+        email: clerkUser.primaryEmailAddress?.emailAddress || 'user@example.com',
+        role: (clerkUser.publicMetadata?.role as UserRole) || 'DONOR',
+      };
+      this.notifySubscribers();
+    }
+  }
+
+  /**
+   * Logs in with a specific persona role (used in development & test suite)
    */
   public async loginWithRole(role: UserRole): Promise<AuthUser> {
     const personaMap: Record<UserRole, string> = {
@@ -125,11 +158,13 @@ export class AuthService {
 
       if (res.ok) {
         const data = (await res.json()) as LoginResponse;
-        this.setSession(data.token, data.user);
+        this.currentToken = data.token;
+        this.currentUser = data.user;
+        this.notifySubscribers();
         return data.user;
       }
     } catch {
-      // Local fallback token generation if backend is temporarily unreachable
+      // Local fallback if server unreachable
     }
 
     const fallbackUser: AuthUser = {
@@ -138,20 +173,10 @@ export class AuthService {
       email: `${role.toLowerCase()}@trustfabric.org`,
       role,
     };
-    this.setSession(`local_jwt_${Date.now()}_${role}`, fallbackUser);
-    return fallbackUser;
-  }
-
-  private setSession(token: string, user: AuthUser): void {
-    this.currentToken = token;
-    this.currentUser = user;
-
-    if (typeof window !== 'undefined' && window.localStorage) {
-      localStorage.setItem(TOKEN_KEY, token);
-      localStorage.setItem(USER_KEY, JSON.stringify(user));
-    }
-
+    this.currentToken = `local_jwt_${Date.now()}_${role}`;
+    this.currentUser = fallbackUser;
     this.notifySubscribers();
+    return fallbackUser;
   }
 
   public getCurrentUser(): AuthUser | null {
@@ -159,6 +184,21 @@ export class AuthService {
   }
 
   public getToken(): string | null {
+    return this.currentToken;
+  }
+
+  public async getFreshToken(): Promise<string | null> {
+    if (this.tokenGetter) {
+      try {
+        const fresh = await this.tokenGetter();
+        if (fresh) {
+          this.currentToken = fresh;
+          return fresh;
+        }
+      } catch {
+        // Fallback to cached token
+      }
+    }
     return this.currentToken;
   }
 
@@ -174,10 +214,7 @@ export class AuthService {
   public logout(): void {
     this.currentToken = null;
     this.currentUser = null;
-    if (typeof window !== 'undefined' && window.localStorage) {
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(USER_KEY);
-    }
+    this.tokenGetter = null;
     this.notifySubscribers();
   }
 

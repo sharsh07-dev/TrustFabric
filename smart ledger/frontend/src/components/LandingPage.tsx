@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { SignInButton, SignUpButton, UserButton, useUser, useAuth } from '@clerk/react';
 import './LandingPage.css';
 import { type NavTab } from './Layout';
 import { type UserRole } from '../types/trustfabric';
@@ -14,6 +15,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   currentUserRole,
   onRoleChange,
 }) => {
+  const { user: clerkUser } = useUser();
+  const { isSignedIn } = useAuth();
   // Calculator state
   const [calcTab, setCalcTab] = useState<'individual' | 'institutional'>('individual');
   const [amount, setAmount] = useState<number>(500);
@@ -65,9 +68,31 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </nav>
 
             <div className="tf-nav-actions">
-              <div className="tf-nav-role-box" title="Active Cryptographic JWT Bearer Session (HS256)">
-                <span style={{ fontSize: '9px', background: '#10B981', color: '#ffffff', fontWeight: 800, padding: '2px 6px', borderRadius: '10px' }}>
-                  JWT ACTIVE
+              {isSignedIn ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px', background: 'rgba(255,255,255,0.08)', borderRadius: '20px' }}>
+                  <UserButton />
+                  <span style={{ fontSize: '11px', color: '#E2E8F0', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {clerkUser?.primaryEmailAddress?.emailAddress || 'Authenticated'}
+                  </span>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <SignInButton mode="modal">
+                    <button className="tf-btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
+                      Sign In
+                    </button>
+                  </SignInButton>
+                  <SignUpButton mode="modal">
+                    <button className="tf-btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', background: 'rgba(255,255,255,0.1)' }}>
+                      Sign Up
+                    </button>
+                  </SignUpButton>
+                </div>
+              )}
+
+              <div className="tf-nav-role-box" title="Active Cryptographic Clerk & RBAC Session">
+                <span style={{ fontSize: '9px', background: '#3B82F6', color: '#ffffff', fontWeight: 800, padding: '2px 6px', borderRadius: '10px' }}>
+                  CLERK ACTIVE
                 </span>
                 <span className="tf-nav-role-label">ROLE:</span>
                 <select
