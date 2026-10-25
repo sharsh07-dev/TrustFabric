@@ -181,7 +181,9 @@ export class NgoVerificationService {
    */
   public async getApplications(): Promise<NgoApplicationRecord[]> {
     try {
-      const res = await fetch(`${API_BASE}/ngo/applications`);
+      const res = await fetch(`${API_BASE}/ngo/applications`, {
+        signal: AbortSignal.timeout(3000),
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.applications && Array.isArray(data.applications)) {
@@ -203,7 +205,9 @@ export class NgoVerificationService {
    */
   public async getApplication(id: string): Promise<NgoApplicationRecord | null> {
     try {
-      const res = await fetch(`${API_BASE}/ngo/applications/${id}`);
+      const res = await fetch(`${API_BASE}/ngo/applications/${id}`, {
+        signal: AbortSignal.timeout(3000),
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.application) {
@@ -236,6 +240,7 @@ export class NgoVerificationService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(3000),
       });
       if (res.ok) {
         const data = await res.json();
@@ -313,6 +318,7 @@ export class NgoVerificationService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(docData),
+        signal: AbortSignal.timeout(3000),
       });
       if (res.ok) {
         const data = await res.json();
@@ -367,6 +373,7 @@ export class NgoVerificationService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify(reviewPayload),
+        signal: AbortSignal.timeout(3000),
       });
       if (res.ok) {
         const data = await res.json();
@@ -445,6 +452,7 @@ export class NgoVerificationService {
           authorizerRole: authorizer.role,
           authorizerName: authorizer.name,
         }),
+        signal: AbortSignal.timeout(3000),
       });
       if (res.ok) {
         const data = await res.json();

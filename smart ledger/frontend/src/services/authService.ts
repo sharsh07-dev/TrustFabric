@@ -102,6 +102,7 @@ export class AuthService {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
+          signal: AbortSignal.timeout(3000),
         });
 
         if (res.ok) {
@@ -154,6 +155,7 @@ export class AuthService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ persona }),
+        signal: AbortSignal.timeout(3000),
       });
 
       if (res.ok) {

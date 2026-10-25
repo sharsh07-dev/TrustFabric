@@ -35,21 +35,21 @@ export function extractBearerToken(req: Request): string | null {
  * NEVER derives identity from unauthenticated request body.
  */
 export async function verifyUserToken(token: string): Promise<{ valid: boolean; user?: AuthUser; error?: string }> {
-  // 1. Try Clerk session token verification
-  const clerkResult = await clerkService.verifySessionToken(token);
-  if (clerkResult.valid && clerkResult.user) {
-    return clerkResult;
-  }
-
-  // 2. Cryptographic JWT verification for automated test suites and personas
+  // 1. Fast in-memory verification for system tokens, tests, and personas
   const jwtResult = jwtService.verifyToken(token);
   if (jwtResult.valid && jwtResult.user) {
     return jwtResult;
   }
 
+  // 2. Try Clerk session token verification for Clerk browser sessions
+  const clerkResult = await clerkService.verifySessionToken(token);
+  if (clerkResult.valid && clerkResult.user) {
+    return clerkResult;
+  }
+
   return {
     valid: false,
-    error: clerkResult.error || jwtResult.error || 'Invalid session credentials',
+    error: jwtResult.error || clerkResult.error || 'Invalid session credentials',
   };
 }
 

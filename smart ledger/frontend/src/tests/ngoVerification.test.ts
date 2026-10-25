@@ -1,11 +1,199 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { NgoVerificationService } from '../services/ngoVerificationService';
+import { AuthService } from '../services/authService';
 
 describe('TrustFabric Frontend NGO Verification & Gated Escrow Service', () => {
   let service: NgoVerificationService;
+  let fetchSpy: any;
 
   beforeEach(() => {
     service = NgoVerificationService.getInstance();
+    try {
+      localStorage.clear();
+    } catch {
+      // Ignore if localStorage unavailable
+    }
+    (service as any).localCache.clear();
+    (service as any).initDefaultLocalSeeds();
+
+    // Reset AuthService to clean state
+    AuthService.getInstance().logout();
+
+    // Deterministic HTTP mocking for unit tests to eliminate external dependencies and timeouts
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const method = (init?.method || 'GET').toUpperCase();
+      const body = init?.body ? (typeof init.body === 'string' ? JSON.parse(init.body) : init.body) : null;
+      const authHeader = (init?.headers as Record<string, string>)?.[ 'Authorization' ] || (init?.headers as Record<string, string>)?.[ 'authorization' ];
+
+      // 1. Mock /api/auth/login (Issues signed test persona JWT)
+      if (url.includes('/api/auth/login')) {
+        const persona = body?.persona || 'MEERA_ADMIN';
+        const role = persona.includes('AUDITOR') ? 'AUDITOR' : persona.includes('ADMIN') ? 'ADMIN' : 'DONOR';
+        return new Response(
+          JSON.stringify({
+            token: `deterministic_test_jwt_${role.toLowerCase()}`,
+            user: {
+              id: `usr-${role.toLowerCase()}-001`,
+              name: role === 'ADMIN' ? 'Meera Patel' : 'Forensic Auditor',
+              email: `${role.toLowerCase()}@trustfabric.org`,
+              role,
+              organizationId: 'ngo-jal-jeevan',
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // 2. Mock GET /api/ngo/applications
+      if (url.endsWith('/api/ngo/applications') && method === 'GET') {
+        const apps = Array.from((service as any).localCache.values());
+        return new Response(JSON.stringify({ applications: apps }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      // 3. Mock POST /api/ngo/applications/:id/documents
+      if (url.includes('/documents') && method === 'POST') {
+        const appIdMatch = url.match(/\/applications\/([^/]+)\/documents/);
+        const appId = appIdMatch ? appIdMatch[1] : 'ngo-app-002';
+        const app = (service as any).localCache.get(appId);
+        if (app && body?.type) {
+          app.documents[body.type] = {
+            id: `doc-${Date.now()}`,
+            type: body.type,
+            name: body.name,
+            fileSha256: body.fileSha256,
+            uploadedAt: new Date().toISOString(),
+            mimeType: body.mimeType || 'application/pdf',
+            sizeBytes: body.sizeBytes || 240000,
+            reviewStatus: body.reviewStatus || 'PENDING_REVIEW',
+          };
+          (service as any).runClientAudit(app);
+        }
+        return new Response(
+          JSON.stringify({
+            message: 'Document uploaded',
+            application: app,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // 4. Mock POST /api/ngo/applications/:id/review
+      if (url.includes('/review') && method === 'POST') {
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+          return new Response(JSON.stringify({ error: 'Unauthorized: missing Bearer token' }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        const appIdMatch = url.match(/\/applications\/([^/]+)\/review/);
+        const appId = appIdMatch ? appIdMatch[1] : '';
+        const decision = body?.decision;
+
+        if (appId === 'ngo-app-002' && decision === 'APPROVED') {
+          return new Response(
+            JSON.stringify({
+              error: 'Cannot approve application with unresolved defects or duplicate bank collisions.',
+              defects: [
+                'Duplicate Bank Account collision detected across multiple registered NGOs.',
+                'Missing one or more mandatory compliance documents.',
+              ],
+            }),
+            { status: 422, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const app = (service as any).localCache.get(appId);
+        if (app) {
+          app.verificationStatus = decision;
+          app.reviewDecision = {
+            decision,
+            reviewer: body?.reviewer || 'Meera (NGO Lead)',
+            reviewerRole: body?.reviewerRole || 'ADMIN',
+            notes: body?.notes || '',
+          };
+        }
+
+        return new Response(
+          JSON.stringify({
+            message: `Application ${decision?.toLowerCase()} by reviewer.`,
+            application: app,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // 5. Mock POST /api/ngo/applications/:id/authorize-funding
+      if (url.includes('/authorize-funding') && method === 'POST') {
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+          return new Response(JSON.stringify({ error: 'Unauthorized: missing Bearer token' }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        const appIdMatch = url.match(/\/applications\/([^/]+)\/authorize-funding/);
+        const appId = appIdMatch ? appIdMatch[1] : '';
+
+        if (appId === 'ngo-app-002') {
+          const app = (service as any).localCache.get('ngo-app-002');
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'ESCROW_RELEASE_BLOCKED: Gated verification criteria not satisfied.',
+              blockingReasons: [
+                "Verification status is 'FLAGGED_DEFECTS' (Must be 'APPROVED' before release).",
+                'Duplicate bank account nullifier collision detected. Funds locked to prevent fraud.',
+              ],
+              application: app,
+            }),
+            { status: 422, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const app = (service as any).localCache.get('ngo-app-001') || {
+          id: 'ngo-app-001',
+          verificationStatus: 'APPROVED',
+          escrowAuthorization: {},
+        };
+        const now = new Date().toISOString();
+        const commitment = await service.computeFileSha256(
+          `TRUSTFABRIC_ESCROW_RELEASE_V1|${app.id}|${app.darpanId}|${app.bankDetails.accountNumber}|${app.projectProposal.requestedAmountPaise}|${now}`
+        );
+        const txHash = '0x' + (await service.computeFileSha256(`TX-${commitment}`));
+
+        app.verificationStatus = 'APPROVED';
+        app.escrowAuthorization = {
+          isAuthorized: true,
+          blockingReasons: [],
+          authorizedAt: now,
+          authorizerRole: body?.authorizerRole || 'ADMIN',
+          contractEscrowTrancheId: 'tranche-app-001',
+          blockchainTxHash: txHash,
+          blockchainBlock: 5892150,
+          blockchainStatus: 'ESCROW_RELEASED',
+          onChainAnchorHash: '0x' + commitment,
+          network: 'Ethereum Sepolia (EVM) / TrustFabricEscrow.sol',
+          contractAddress: '0x71C569E962Ac1C7F602B7d2A40EAA672D611293B',
+        };
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            application: app,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(JSON.stringify({ error: 'Endpoint not found' }), { status: 404 });
+    });
+  });
+
+  afterEach(() => {
+    fetchSpy?.mockRestore();
   });
 
   describe('1. WebCrypto SHA-256 Hashing', () => {
