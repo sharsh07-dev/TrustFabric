@@ -1,3 +1,4 @@
+import http from 'http';
 import express from 'express';
 import cors from 'cors';
 import { config } from './config.js';
@@ -7,8 +8,14 @@ import { authRouter } from './routes/authRoutes.js';
 import { dbRoutes } from './routes/dbRoutes.js';
 import { evidenceRoutes } from './routes/evidenceRoutes.js';
 import { anchorRoutes } from './routes/anchorRoutes.js';
+import { RealtimeSocketService } from './services/realtimeSocketService.js';
 
 const app = express();
+const httpServer = http.createServer(app);
+
+// Attach Socket.IO to HTTP Server
+const realtimeService = RealtimeSocketService.getInstance();
+realtimeService.attach(httpServer);
 
 // Enable CORS for frontend Vite dev server (port 3000 / 5173)
 app.use(
@@ -37,6 +44,24 @@ app.get('/api/health', (_req, res) => {
     network: config.networkName,
     chainId: config.evmChainId,
     fiatAnchorContract: config.fiatAnchorContractAddress,
+    realtime: realtimeService.getHealth(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Real-time readiness and initial snapshot endpoints
+app.get('/api/realtime/health', (_req, res) => {
+  res.json({
+    success: true,
+    ...realtimeService.getHealth(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.get('/api/realtime/snapshot', (_req, res) => {
+  res.json({
+    success: true,
+    donations: realtimeService.getRecentDonations(),
     timestamp: new Date().toISOString(),
   });
 });
@@ -51,8 +76,9 @@ app.use('/api/anchors', anchorRoutes);
 
 // Start server if not running in test mode
 if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
-  const server = app.listen(config.port, () => {
+  const server = httpServer.listen(config.port, () => {
     console.log(`[TrustFabric Server] Node.js payment gateway running on http://localhost:${config.port}`);
+    console.log(`[TrustFabric Server] Real-time Socket.IO broadcasting attached`);
     console.log(`[TrustFabric Server] Razorpay Mode: ${config.razorpayMode.toUpperCase()}`);
     console.log(`[TrustFabric Server] Public Key ID: ${config.razorpayKeyId}`);
     console.log(`[TrustFabric Server] EVM Anchor Target: ${config.networkName} (Chain ID ${config.evmChainId})`);
@@ -66,4 +92,5 @@ if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
   });
 }
 
+export { httpServer };
 export default app;

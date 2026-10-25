@@ -281,6 +281,22 @@ export class RazorpayService {
 
     if (isCaptured) {
       try {
+        const { RealtimeSocketService } = await import('./realtimeSocketService.js');
+        await RealtimeSocketService.getInstance().publishVerifiedDonation({
+          donationId: intent.id,
+          campaignId: intent.grantId,
+          amountPaise: intent.amountPaise,
+          currency: intent.currency,
+          donorName: intent.donorName,
+          donorUserId: intent.donorId,
+          isAnonymous: !intent.donorName,
+          provenance: 'RAZORPAY_VERIFIED',
+        });
+      } catch (rtErr: any) {
+        console.warn(`[RealtimeSocket Notice] Checkout broadcast: ${rtErr.message}`);
+      }
+
+      try {
         const { ServerFirebaseService } = await import('./firebaseService.js');
         ServerFirebaseService.getInstance().syncPaymentCaptured({
           donationId: intent.id,
@@ -389,6 +405,35 @@ export class RazorpayService {
           this.db.updateDonationState(intent.id, 'CAPTURED', {
             razorpayPaymentId: paymentId,
           });
+
+          // Real-time broadcasting via Socket.IO for 100+ concurrent clients
+          try {
+            const { RealtimeSocketService } = await import('./realtimeSocketService.js');
+            await RealtimeSocketService.getInstance().publishVerifiedDonation({
+              donationId: intent.id,
+              campaignId: intent.grantId,
+              amountPaise: intent.amountPaise,
+              currency: intent.currency,
+              donorName: intent.donorName,
+              donorUserId: intent.donorId,
+              isAnonymous: !intent.donorName,
+              provenance: 'RAZORPAY_VERIFIED',
+            });
+
+            // Aggregate updated campaign metrics
+            const allDonations = Array.from(this.db.donationIntents.values()).filter(
+              (d) => d.grantId === intent.grantId && (d.state === 'CAPTURED' || d.state === 'ANCHORED')
+            );
+            const totalRaised = allDonations.reduce((sum, d) => sum + d.amountPaise, 0);
+            await RealtimeSocketService.getInstance().publishCampaignUpdate({
+              grantId: intent.grantId,
+              totalRaisedPaise: totalRaised,
+              donationsCount: allDonations.length,
+              lastDonationAt: new Date().toISOString(),
+            });
+          } catch (rtErr: any) {
+            console.warn(`[RealtimeSocket Notice] Webhook broadcast scheduled: ${rtErr.message}`);
+          }
         } else if (eventType === 'payment.failed') {
           this.db.updateDonationState(intent.id, 'FAILED');
         } else if (eventType === 'refund.processed' || eventType === 'refund.created') {

@@ -324,3 +324,21 @@ model TransactionAttempt {
   @@map("transaction_attempts")
 }
 
+// -------------------------------------------------------------
+// 11. Transactional Outbox for Reliable Socket.IO Real-Time Broadcasting
+// -------------------------------------------------------------
+model OutboxEvent {
+  id          String    @id @default(uuid())
+  eventType   String    // 'donation:confirmed' | 'campaign:updated'
+  aggregateId String    // donationId or grantId
+  payloadJson String    // Serialized sanitized JSON string
+  published   Boolean   @default(false)
+  publishedAt DateTime?
+  retryCount  Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  @@index([published])
+  @@index([createdAt])
+  @@map("outbox_events")
+}
+

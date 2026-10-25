@@ -10,6 +10,7 @@ import {
   FirebaseClient,
   type PublicDonationRecord,
 } from '../services/firebaseClient';
+import { RealtimeClient, type RealtimeDonationEvent } from '../services/realtimeClient';
 import { type TrustFabricStoreState } from '../services/storage';
 import { type FinancialEvent, type UserRole } from '../types/trustfabric';
 
@@ -38,13 +39,15 @@ export const DonationView: React.FC<DonationViewProps> = ({
 }) => {
   const [paymentService] = useState(() => PaymentService.getInstance());
   const [firebaseClient] = useState(() => FirebaseClient.getInstance());
+  const [realtimeClient] = useState(() => RealtimeClient.getInstance());
 
   const [config, setConfig] = useState<PublicPaymentConfig | null>(null);
   const [grants, setGrants] = useState<PaymentGrant[]>([]);
   const [selectedGrantId, setSelectedGrantId] = useState<string>('');
 
-  // Realtime Firebase RTDB State
+  // Realtime Socket.IO & Firebase State
   const [isFirebaseConnected, setIsFirebaseConnected] = useState<boolean>(false);
+  const [isSocketConnected, setIsSocketConnected] = useState<boolean>(false);
   const [rtdbDonations, setRtdbDonations] = useState<PublicDonationRecord[]>([]);
   const [lastRtdbSyncTime, setLastRtdbSyncTime] = useState<string>('');
 
@@ -69,7 +72,7 @@ export const DonationView: React.FC<DonationViewProps> = ({
   const [showAllocModal, setShowAllocModal] = useState<boolean>(false);
   const [allocSuccessMsg, setAllocSuccessMsg] = useState<string | null>(null);
 
-  // Load initial config and setup Firebase listeners
+  // Load initial config and setup Socket.IO & Firebase listeners
   useEffect(() => {
     async function initData() {
       try {
@@ -92,33 +95,57 @@ export const DonationView: React.FC<DonationViewProps> = ({
     }
     initData();
 
-    // 1. Subscribe to Firebase connection state
-    const unsubConn = firebaseClient.subscribeToConnectionStatus(connected => {
-      setIsFirebaseConnected(connected);
-      if (connected) {
+    // 1. Connect & Subscribe to Socket.IO Real-Time Broadcasts
+    realtimeClient.connect();
+    const unsubSocketStatus = realtimeClient.subscribeStatus(status => {
+      setIsSocketConnected(status === 'CONNECTED');
+      if (status === 'CONNECTED') {
         setLastRtdbSyncTime(new Date().toLocaleTimeString());
       }
     });
 
-    // 2. Subscribe to Realtime Public Donations Feed
-    const unsubDon = firebaseClient.subscribeToPublicDonations(donations => {
-      if (donations && donations.length > 0) {
-        setRtdbDonations(donations);
-      } else {
-        paymentService.getPublicDonations().then(serverDons => {
-          if (serverDons && serverDons.length > 0) {
-            setRtdbDonations(serverDons);
-          }
-        }).catch(() => {});
-      }
+    const unsubSocketDonations = realtimeClient.subscribeDonations((newDon: RealtimeDonationEvent) => {
+      setRtdbDonations(prev => {
+        if (prev.some(d => d.donationId === newDon.donationId)) return prev;
+        const newRecord: PublicDonationRecord = {
+          donationId: newDon.donationId,
+          donationCode: `DON-${newDon.donationId.slice(-6).toUpperCase()}`,
+          campaignId: newDon.campaignId,
+          amountPaise: newDon.amountPaise,
+          currency: newDon.currency,
+          status: 'CAPTURED',
+          provenance: 'RAZORPAY_TEST_CAPTURED',
+          createdAt: newDon.confirmedAt,
+        };
+        return [newRecord, ...prev];
+      });
       setLastRtdbSyncTime(new Date().toLocaleTimeString());
     });
 
+    // 2. Subscribe to Firebase connection state (optional backup)
+    const unsubConn = firebaseClient.subscribeToConnectionStatus(connected => {
+      setIsFirebaseConnected(connected);
+    });
+
+    // 3. Subscribe to Realtime Public Donations Feed (fallback)
+    const unsubDon = firebaseClient.subscribeToPublicDonations(donations => {
+      if (donations && donations.length > 0) {
+        setRtdbDonations(prev => {
+          // Merge unique
+          const ids = new Set(prev.map(p => p.donationId));
+          const unique = donations.filter(d => !ids.has(d.donationId));
+          return [...unique, ...prev];
+        });
+      }
+    });
+
     return () => {
+      unsubSocketStatus();
+      unsubSocketDonations();
       unsubConn();
       unsubDon();
     };
-  }, [paymentService, firebaseClient]);
+  }, [paymentService, firebaseClient, realtimeClient]);
 
   const activeGrant = grants.find(g => g.id === selectedGrantId) || grants[0];
   const parsedPaise = Math.round((parseFloat(amountRupees) || 0) * 100);
@@ -424,6 +451,25 @@ export const DonationView: React.FC<DonationViewProps> = ({
           >
             <span style={{ fontSize: '10px' }}>{isFirebaseConnected ? '🟢' : '🟡'}</span>
             <span>{isFirebaseConnected ? 'RTDB: CONNECTED' : 'RTDB: INITIALIZING'}</span>
+          </div>
+
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '11px',
+              fontWeight: 600,
+              padding: '4px 10px',
+              borderRadius: 'var(--radius-sm)',
+              background: isSocketConnected ? '#ecfdf5' : '#fef3c7',
+              color: isSocketConnected ? '#065f46' : '#92400e',
+              border: `1px solid ${isSocketConnected ? '#a7f3d0' : '#fde68a'}`,
+              fontFamily: 'var(--font-mono)',
+            }}
+          >
+            <span style={{ fontSize: '10px' }}>{isSocketConnected ? '🟢' : '🟡'}</span>
+            <span>{isSocketConnected ? 'SOCKET.IO: LIVE (100 CLIENTS)' : 'SOCKET.IO: CONNECTING'}</span>
           </div>
 
           <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>

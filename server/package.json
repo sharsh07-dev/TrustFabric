@@ -18,7 +18,9 @@
     "express": "^4.21.2",
     "firebase": "^13.1.0",
     "ioredis": "^6.0.0",
-    "multer": "^2.5.0"
+    "multer": "^2.5.0",
+    "socket.io": "^4.8.4",
+    "socket.io-client": "^4.8.4"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
