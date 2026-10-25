@@ -26,6 +26,31 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   return (
     <div className="tf-landing-root">
+      {/* Top Utility Banner for Immediate Navigation to Dashboard */}
+      <div style={{ background: '#0f172a', color: '#94a3b8', padding: '6px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', borderBottom: '1px solid #1e293b' }}>
+        <div>
+          <span>🛡️ <strong>TrustFabric Showcase</strong> &bull; Built with Reference Theme (ref1.png &amp; ref2.png)</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            onClick={() => onNavigate('overview')}
+            style={{
+              background: '#FFB800',
+              color: '#0f172a',
+              fontWeight: 750,
+              fontSize: '11px',
+              padding: '4px 12px',
+              borderRadius: '4px',
+              border: 'none',
+              cursor: 'pointer',
+              letterSpacing: '0.3px'
+            }}
+          >
+            ← Open Operations Dashboard
+          </button>
+        </div>
+      </div>
+
       {/* ===================================================================
           Top Navigation Header (ref1.png)
           =================================================================== */}

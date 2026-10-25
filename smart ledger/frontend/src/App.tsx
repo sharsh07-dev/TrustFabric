@@ -22,16 +22,16 @@ export function App() {
   const [evidenceService] = useState(() => new EvidenceService());
   const [storeState, setStoreState] = useState<TrustFabricStoreState | null>(null);
 
-  // Initialize from URL hash or default to landing page
+  // Initialize from URL hash or default to overview dashboard
   const [activeTab, setActiveTabState] = useState<NavTab>(() => {
     const raw = window.location.hash.replace('#/', '').replace('#', '');
+    if (raw === 'landing') return 'landing';
     if (raw === 'donations' || raw === 'donate') return 'donate';
-    if (raw === 'overview') return 'overview';
     if (raw === 'grants') return 'grants';
     if (raw === 'fundflows') return 'fundflows';
     if (raw === 'evidence') return 'evidence';
     if (raw === 'audit') return 'audit';
-    return 'landing';
+    return 'overview';
   });
 
   const setActiveTab = (tab: NavTab) => {
