@@ -220,3 +220,26 @@ model NgoApplication {
   @@index([darpanId])
   @@map("ngo_applications")
 }
+
+// -------------------------------------------------------------
+// 9. Private Cloud Evidence Vault (Supabase Storage Metadata)
+// -------------------------------------------------------------
+model EvidenceDocument {
+  id                 String   @id @default(uuid())
+  storageKey         String   @unique
+  originalFilename   String
+  mimeType           String
+  sizeBytes          Int
+  sha256             String
+  organizationId     String
+  uploaderId         String
+  claimId            String?
+  verificationStatus String   @default("VERIFIED") // 'VERIFIED' | 'TAMPERED' | 'PENDING'
+  storageProvider    String   @default("supabase_storage")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([sha256])
+  @@map("evidence_documents")
+}

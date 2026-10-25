@@ -50,12 +50,21 @@ authRouter.get('/auth/personas', (_req: Request, res: Response) => {
  * Issues cryptographically signed JWT for credentials or chosen persona
  */
 authRouter.post('/auth/login', (req: Request, res: Response): void => {
-  const { persona, email, role, name } = req.body;
+  const { persona, personaKey, email, role, name } = req.body;
+  const key = persona || personaKey;
 
   let user: AuthUser;
 
-  if (persona && STANDARD_PERSONAS[persona]) {
-    user = STANDARD_PERSONAS[persona];
+  if (key && STANDARD_PERSONAS[key]) {
+    user = STANDARD_PERSONAS[key];
+  } else if (role && !email) {
+    const matched = Object.values(STANDARD_PERSONAS).find((p) => p.role === role);
+    user = matched || {
+      id: `usr-${Date.now().toString(36)}`,
+      name: name || `${role} User`,
+      email: `${role.toLowerCase()}@trustfabric.org`,
+      role: role as UserRole,
+    };
   } else if (email && role) {
     user = {
       id: `usr-${Date.now().toString(36)}`,
