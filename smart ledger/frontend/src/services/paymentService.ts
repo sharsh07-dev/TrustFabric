@@ -110,18 +110,21 @@ export interface ProofPackageResponse {
 }
 
 async function apiFetch(path: string, options?: RequestInit): Promise<Response> {
+  const directUrl = path.startsWith('http') ? path : `http://localhost:5001${path}`;
   try {
-    const res = await fetch(path, options);
-    if (res.status === 404 && !path.startsWith('http')) {
-      const fallbackUrl = `http://localhost:5001${path}`;
-      return await fetch(fallbackUrl, options);
-    }
-    return res;
+    const res = await fetch(directUrl, options);
+    if (res.ok) return res;
+    // If direct returned an error status other than network failure, return it
+    if (res.status !== 404 && res.status !== 502 && res.status !== 504) return res;
   } catch {
-    if (!path.startsWith('http')) {
-      return await fetch(`http://localhost:5001${path}`, options);
-    }
-    throw new Error('Network request failed');
+    // Direct network connection failed, try relative proxy
+  }
+
+  try {
+    const fallbackRes = await fetch(path, options);
+    return fallbackRes;
+  } catch (err: any) {
+    throw new Error(`Cannot connect to TrustFabric backend at http://localhost:5001 (${err.message}). Ensure backend server is running.`);
   }
 }
 
