@@ -185,3 +185,14 @@ export interface NgoApplicationRecord {
   updatedAt: string;
 }
 
+export type UserRole = 'ADMIN' | 'FINANCE_OFFICER' | 'AUDITOR' | 'DONOR' | 'FIELD_WORKER';
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  organizationId?: string;
+  iat?: number;
+  exp?: number;
+}

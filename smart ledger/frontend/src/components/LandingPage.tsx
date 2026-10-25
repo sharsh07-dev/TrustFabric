@@ -65,17 +65,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </nav>
 
             <div className="tf-nav-actions">
-              <div className="tf-nav-role-box">
-                <span className="tf-nav-role-label">ROLE</span>
+              <div className="tf-nav-role-box" title="Active Cryptographic JWT Bearer Session (HS256)">
+                <span style={{ fontSize: '9px', background: '#10B981', color: '#ffffff', fontWeight: 800, padding: '2px 6px', borderRadius: '10px' }}>
+                  JWT ACTIVE
+                </span>
+                <span className="tf-nav-role-label">ROLE:</span>
                 <select
                   value={currentUserRole}
                   onChange={(e) => onRoleChange(e.target.value as UserRole)}
                   className="tf-nav-role-select"
                 >
                   <option value="DONOR">Aarav (Donor)</option>
-                  <option value="NGO_ADMIN">Meera (NGO Admin)</option>
-                  <option value="FIELD_WORKER">Ravi (Vendor / Field)</option>
+                  <option value="ADMIN">Meera (NGO Admin)</option>
                   <option value="AUDITOR">Judge / Auditor</option>
+                  <option value="FINANCE_OFFICER">Finance Officer</option>
                 </select>
               </div>
 

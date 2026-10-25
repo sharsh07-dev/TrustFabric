@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { PaymentDatabase } from '../db.js';
 import { ServerFirebaseService } from '../services/firebaseService.js';
 import { config } from '../config.js';
+import { requireRoles, type AuthenticatedRequest } from '../middleware/authMiddleware.js';
 import type {
   NgoApplicationRecord,
   NgoVerificationDocument,
@@ -218,24 +219,23 @@ ngoRouter.post('/ngo/applications/:id/automated-audit', (req: Request, res: Resp
  * POST /api/ngo/applications/:id/review
  * Verification team review decision (Approve / Reject / Flag)
  */
-ngoRouter.post('/ngo/applications/:id/review', (req: Request, res: Response): void => {
-  const app = db.getNgoApplication(req.params.id);
-  if (!app) {
-    res.status(404).json({ error: `NGO Application not found: ${req.params.id}` });
-    return;
-  }
+ngoRouter.post(
+  '/ngo/applications/:id/review',
+  requireRoles('ADMIN', 'AUDITOR'),
+  (req: AuthenticatedRequest, res: Response): void => {
+    const app = db.getNgoApplication(req.params.id);
+    if (!app) {
+      res.status(404).json({ error: `NGO Application not found: ${req.params.id}` });
+      return;
+    }
 
-  const { decision, reviewer, reviewerRole, notes, documentStatusUpdates } = req.body;
-  if (!decision || !['APPROVED', 'REJECTED', 'NEEDS_CHANGES'].includes(decision)) {
-    res.status(400).json({ error: 'Invalid decision. Must be APPROVED, REJECTED, or NEEDS_CHANGES.' });
-    return;
-  }
-
-  // Role validation: Donor or unauthenticated role cannot review NGO compliance
-  if (reviewerRole === 'DONOR' || !reviewerRole) {
-    res.status(403).json({ error: 'Permission denied: Only NGO Verification Leads or Auditors can review applications.' });
-    return;
-  }
+    const reviewer = req.user?.name || req.body.reviewer || 'TrustFabric Officer';
+    const reviewerRole = req.user?.role || req.body.reviewerRole || 'ADMIN';
+    const { decision, notes, documentStatusUpdates } = req.body;
+    if (!decision || !['APPROVED', 'REJECTED', 'NEEDS_CHANGES'].includes(decision)) {
+      res.status(400).json({ error: 'Invalid decision. Must be APPROVED, REJECTED, or NEEDS_CHANGES.' });
+      return;
+    }
 
   // Update specific document review statuses if provided
   if (documentStatusUpdates && typeof documentStatusUpdates === 'object') {
@@ -320,15 +320,19 @@ ngoRouter.post('/ngo/applications/:id/review', (req: Request, res: Response): vo
  * Strictly gated smart contract escrow authorization endpoint.
  * REVERTS / BLOCKS if any verification check, compliance document, or approval is missing!
  */
-ngoRouter.post('/ngo/applications/:id/authorize-funding', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const app = db.getNgoApplication(req.params.id);
-    if (!app) {
-      res.status(404).json({ error: `NGO Application not found: ${req.params.id}` });
-      return;
-    }
+ngoRouter.post(
+  '/ngo/applications/:id/authorize-funding',
+  requireRoles('ADMIN', 'AUDITOR', 'FINANCE_OFFICER'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const app = db.getNgoApplication(req.params.id);
+      if (!app) {
+        res.status(404).json({ error: `NGO Application not found: ${req.params.id}` });
+        return;
+      }
 
-    const { authorizerRole, authorizerName } = req.body;
+      const authorizerRole = req.user?.role || req.body.authorizerRole || 'ADMIN';
+      const authorizerName = req.user?.name || req.body.authorizerName || 'Finance Officer';
 
     // Run fresh automated audit
     runAutomatedAudit(app);

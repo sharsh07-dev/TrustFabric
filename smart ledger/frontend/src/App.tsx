@@ -16,6 +16,7 @@ import { ReportsView } from './components/ReportsView';
 import { SettingsHealthView } from './components/SettingsHealthView';
 import { NgoVerificationDemo } from './components/NgoVerificationDemo';
 import { EvidenceService } from './services/evidenceService';
+import { AuthService } from './services/authService';
 import { type UserRole } from './types/trustfabric';
 
 export function App() {
@@ -174,6 +175,7 @@ export function App() {
 
   const handleRoleChange = (role: UserRole) => {
     handleUpdateState({ currentUserRole: role });
+    AuthService.getInstance().loginWithRole(role).catch(() => {});
     if (role === 'DONOR') {
       setActiveTab('donor');
     }

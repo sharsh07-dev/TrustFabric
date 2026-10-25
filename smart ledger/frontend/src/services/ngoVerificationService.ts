@@ -5,6 +5,7 @@
  */
 
 import { type UserRole } from '../types/trustfabric';
+import { AuthService } from './authService';
 
 export type NgoDocType =
   | '12A_80G_CERTIFICATE'
@@ -357,10 +358,14 @@ export class NgoVerificationService {
       documentStatusUpdates?: Record<string, 'VERIFIED' | 'SUSPICIOUS_FLAGGED' | 'MISSING'>;
     }
   ): Promise<{ success: boolean; application: NgoApplicationRecord; error?: string }> {
+    if (AuthService.getInstance().getCurrentUser()?.role !== reviewPayload.reviewerRole) {
+      await AuthService.getInstance().loginWithRole(reviewPayload.reviewerRole);
+    }
+    const authHeaders = AuthService.getInstance().getAuthHeaders();
     try {
       const res = await fetch(`${API_BASE}/ngo/applications/${appId}/review`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify(reviewPayload),
       });
       if (res.ok) {
@@ -368,8 +373,8 @@ export class NgoVerificationService {
         this.localCache.set(data.application.id, data.application);
         this.persistToLocalStorage();
         return { success: true, application: data.application };
-      } else if (res.status !== 404) {
-        const data = await res.json();
+      } else {
+        const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
         return { success: false, application: this.localCache.get(appId)!, error: data.error };
       }
     } catch {
@@ -428,10 +433,14 @@ export class NgoVerificationService {
     appId: string,
     authorizer: { role: UserRole; name: string }
   ): Promise<{ success: boolean; application: NgoApplicationRecord; error?: string; blockingReasons?: string[] }> {
+    if (AuthService.getInstance().getCurrentUser()?.role !== authorizer.role) {
+      await AuthService.getInstance().loginWithRole(authorizer.role);
+    }
+    const authHeaders = AuthService.getInstance().getAuthHeaders();
     try {
       const res = await fetch(`${API_BASE}/ngo/applications/${appId}/authorize-funding`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({
           authorizerRole: authorizer.role,
           authorizerName: authorizer.name,
@@ -442,13 +451,13 @@ export class NgoVerificationService {
         this.localCache.set(data.application.id, data.application);
         this.persistToLocalStorage();
         return { success: true, application: data.application };
-      } else if (res.status !== 404) {
-        const data = await res.json();
+      } else {
+        const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
         return {
           success: false,
           application: data.application || this.localCache.get(appId)!,
           error: data.error,
-          blockingReasons: data.blockingReasons,
+          blockingReasons: data.blockingReasons || [data.error || 'Escrow funding release rejected by server.'],
         };
       }
     } catch {

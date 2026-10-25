@@ -168,8 +168,13 @@ export const Layout: React.FC<LayoutProps> = ({
 
         <div className="sidebar-footer">
           <div className="role-switcher-box">
-            <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-on-dark-dim)', marginBottom: '4px' }}>
-              Active Role:
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+              <span style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-on-dark-dim)' }}>
+                Authenticated Role:
+              </span>
+              <span style={{ fontSize: '9px', background: '#10B981', color: '#ffffff', fontWeight: 800, padding: '1px 5px', borderRadius: '4px' }}>
+                JWT HS256
+              </span>
             </div>
             <select
               style={{
@@ -185,9 +190,10 @@ export const Layout: React.FC<LayoutProps> = ({
               value={currentUserRole}
               onChange={e => onRoleChange(e.target.value as UserRole)}
             >
-              <option value="ADMIN">NGO Finance Admin</option>
-              <option value="AUDITOR">Independent Auditor</option>
-              <option value="DONOR">Authenticated Donor</option>
+              <option value="ADMIN">NGO Finance Admin (Write)</option>
+              <option value="AUDITOR">Independent Auditor (Gatekeeper)</option>
+              <option value="DONOR">Authenticated Donor (Read-Only)</option>
+              <option value="FINANCE_OFFICER">Finance Officer</option>
             </select>
           </div>
 
