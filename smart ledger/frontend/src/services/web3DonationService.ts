@@ -83,8 +83,8 @@ export const TRUSTFABRIC_DONATION_ABI = [
 ] as const;
 
 export const SEPOLIA_CONTRACT_ADDRESS: Address =
-  '0x71C25bf4e37da4b7F2eFe341F21074eAf7096eF4';
-const SEPOLIA_CHAIN_ID = 11155111;
+  '0x71c25bf4e37da4b7F2Efe341F21074eaF7096ef4';
+export const SEPOLIA_CHAIN_ID = 11155111;
 const API_BASE = 'http://localhost:5001/api';
 
 export class Web3DonationService {
@@ -94,7 +94,7 @@ export class Web3DonationService {
   private constructor() {
     this.publicClient = createPublicClient({
       chain: sepolia,
-      transport: http('https://rpc.sepolia.org'),
+      transport: http('https://ethereum-sepolia-rpc.publicnode.com'),
     });
   }
 
@@ -103,6 +103,95 @@ export class Web3DonationService {
       Web3DonationService.instance = new Web3DonationService();
     }
     return Web3DonationService.instance;
+  }
+
+  /**
+   * Verifies if a contract address is deployed with bytecode on Sepolia
+   */
+  public async verifyContractDeployment(address: Address = SEPOLIA_CONTRACT_ADDRESS): Promise<{
+    isDeployed: boolean;
+    byteLength: number;
+    address: Address;
+  }> {
+    try {
+      const code = await this.publicClient.getBytecode({ address });
+      const hasCode = !!code && code !== '0x' && code !== '0x0';
+      return {
+        isDeployed: hasCode,
+        byteLength: hasCode ? (code.length - 2) / 2 : 0,
+        address,
+      };
+    } catch {
+      return {
+        isDeployed: false,
+        byteLength: 0,
+        address,
+      };
+    }
+  }
+
+  /**
+   * Validates DonationReceived event logs against expected transaction parameters
+   */
+  public verifyDonationEvent(
+    logs: any[],
+    expectedDonor?: Address,
+    expectedRecipient?: Address
+  ): {
+    verified: boolean;
+    donor?: Address;
+    recipient?: Address;
+    amountWei?: bigint;
+    campaignId?: string;
+    error?: string;
+  } {
+    try {
+      const parsedLogs = parseEventLogs({
+        abi: TRUSTFABRIC_DONATION_ABI,
+        eventName: 'DonationReceived',
+        logs,
+      });
+
+      if (!parsedLogs || parsedLogs.length === 0) {
+        return { verified: false, error: 'No DonationReceived event found in transaction receipt logs.' };
+      }
+
+      const eventArgs = (parsedLogs[0] as any).args;
+      const donor = eventArgs.donor;
+      const recipient = eventArgs.recipient;
+      const amountWei = eventArgs.amountWei;
+      const campaignId = eventArgs.campaignId;
+
+      if (expectedDonor && donor.toLowerCase() !== expectedDonor.toLowerCase()) {
+        return {
+          verified: false,
+          donor,
+          recipient,
+          amountWei,
+          error: `Event donor (${donor}) does not match expected sender (${expectedDonor}).`,
+        };
+      }
+
+      if (expectedRecipient && recipient.toLowerCase() !== expectedRecipient.toLowerCase()) {
+        return {
+          verified: false,
+          donor,
+          recipient,
+          amountWei,
+          error: `Event recipient (${recipient}) does not match expected NGO wallet (${expectedRecipient}).`,
+        };
+      }
+
+      return {
+        verified: true,
+        donor,
+        recipient,
+        amountWei,
+        campaignId,
+      };
+    } catch (err: any) {
+      return { verified: false, error: `Failed to parse event logs: ${err.message}` };
+    }
   }
 
   /**

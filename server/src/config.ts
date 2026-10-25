@@ -17,7 +17,7 @@ export const config = {
   networkName: 'Ethereum Sepolia Testnet',
   sepoliaRpcUrl: process.env.SEPOLIA_RPC_URL || 'https://rpc.sepolia.org',
   sepoliaRelayerPrivateKey: process.env.SEPOLIA_RELAYER_PRIVATE_KEY || '',
-  fiatAnchorContractAddress: process.env.FIAT_DONATION_ANCHOR_CONTRACT_ADDRESS || '0x71C25bf4e37da4b7F2eFe341F21074eAf7096eF4',
+  fiatAnchorContractAddress: process.env.FIAT_DONATION_ANCHOR_CONTRACT_ADDRESS || '0x71c25bf4e37da4b7F2Efe341F21074eaF7096ef4',
   relayerAddress: process.env.RELAYER_ADDRESS || '0xa0Ee7A142d267C1f36714E4a8F75612F20a79720',
 
   // Active Grant Limits (Integer Paise: 100 INR = 10,000 paise)
