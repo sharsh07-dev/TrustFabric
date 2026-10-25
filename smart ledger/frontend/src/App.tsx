@@ -14,6 +14,7 @@ import { AuditTrail } from './components/AuditTrail';
 import { DonorPortal } from './components/DonorPortal';
 import { ReportsView } from './components/ReportsView';
 import { SettingsHealthView } from './components/SettingsHealthView';
+import { NgoVerificationDemo } from './components/NgoVerificationDemo';
 import { EvidenceService } from './services/evidenceService';
 import { type UserRole } from './types/trustfabric';
 
@@ -26,6 +27,7 @@ export function App() {
   const [activeTab, setActiveTabState] = useState<NavTab>(() => {
     const raw = window.location.hash.replace('#/', '').replace('#', '').trim();
     if (raw === 'landing' || raw === '') return 'landing';
+    if (raw === 'ngoverify' || raw === 'ngo') return 'ngoverify';
     if (raw === 'donations' || raw === 'donate') return 'donate';
     if (raw === 'overview') return 'overview';
     if (raw === 'grants') return 'grants';
@@ -55,6 +57,8 @@ export function App() {
       const raw = window.location.hash.replace('#/', '').replace('#', '').trim();
       if (raw === '' || raw === 'landing') {
         setActiveTabState('landing');
+      } else if (raw === 'ngoverify' || raw === 'ngo') {
+        setActiveTabState('ngoverify');
       } else if (raw === 'donations' || raw === 'donate') {
         setActiveTabState('donate');
       } else if (raw === 'overview') {
@@ -215,6 +219,13 @@ export function App() {
           state={storeState}
           onNavigate={setActiveTab}
           onResolveFinding={handleResolveFinding}
+        />
+      )}
+
+      {activeTab === 'ngoverify' && (
+        <NgoVerificationDemo
+          currentUserRole={storeState.currentUserRole}
+          onRoleChange={handleRoleChange}
         />
       )}
 

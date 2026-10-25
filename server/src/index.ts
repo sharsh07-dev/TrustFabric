@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { config } from './config.js';
 import { paymentRouter } from './routes/paymentRoutes.js';
+import { ngoRouter } from './routes/ngoRoutes.js';
 
 const app = express();
 
@@ -36,8 +37,9 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-// Mount payment API routes
+// Mount payment and NGO verification API routes
 app.use('/api', paymentRouter);
+app.use('/api', ngoRouter);
 
 // Start server
 const server = app.listen(config.port, () => {

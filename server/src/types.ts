@@ -101,3 +101,87 @@ export interface ActiveGrant {
   maxDonationPaise: number;
   status: 'ACTIVE' | 'PAUSED' | 'COMPLETED';
 }
+
+export type NgoDocType =
+  | '12A_80G_CERTIFICATE'
+  | 'NGO_DARPAN_REGISTRATION'
+  | 'PAN_CARD_ORGANIZATION'
+  | 'FCRA_CLEARANCE'
+  | 'CANCELLED_CHEQUE'
+  | 'PROJECT_PROPOSAL'
+  | 'VENDOR_QUOTES'
+  | 'FIELD_SURVEY';
+
+export interface NgoVerificationDocument {
+  id: string;
+  type: NgoDocType;
+  name: string;
+  fileSha256: string;
+  uploadedAt: string;
+  mimeType: string;
+  sizeBytes: number;
+  reviewStatus: 'VERIFIED' | 'MISSING' | 'SUSPICIOUS_FLAGGED' | 'PENDING_REVIEW';
+  flagReason?: string;
+}
+
+export interface NgoApplicationRecord {
+  id: string;
+  ngoName: string;
+  regNumber: string;
+  darpanId: string;
+  pan: string;
+  contactPerson: string;
+  contactEmail: string;
+  bankDetails: {
+    accountNumber: string;
+    ifscCode: string;
+    bankName: string;
+    beneficiaryName: string;
+    branch: string;
+  };
+  projectProposal: {
+    title: string;
+    requestedAmountPaise: number;
+    purposeCategory: string;
+    milestoneCount: number;
+    targetBeneficiaries: number;
+    timelineMonths: number;
+    summary: string;
+  };
+  documents: Record<string, NgoVerificationDocument>;
+  automatedChecks: {
+    darpanFormatValid: boolean;
+    panFormatValid: boolean;
+    sha256IntegrityPass: boolean;
+    duplicateDarpanCollision: boolean;
+    duplicateBankCollision: boolean;
+    sanctionScreeningPass: boolean;
+    allMandatoryDocsPresent: boolean;
+    suspiciousFlagsCount: number;
+  };
+  verificationStatus: 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'FLAGGED_DEFECTS' | 'APPROVED' | 'REJECTED';
+  reviewDecision: {
+    decision: 'PENDING' | 'APPROVED' | 'REJECTED' | 'NEEDS_CHANGES';
+    reviewer: string;
+    reviewerRole: string;
+    reviewedAt?: string;
+    notes: string;
+    blockingDefects: string[];
+  };
+  escrowAuthorization: {
+    isAuthorized: boolean;
+    blockingReasons: string[];
+    authorizedAt?: string;
+    authorizerRole?: string;
+    contractEscrowTrancheId?: string;
+    blockchainTxHash?: string;
+    blockchainBlock?: number;
+    blockchainStatus: 'NOT_AUTHORIZED' | 'PENDING' | 'ON_CHAIN_LOCKED' | 'ESCROW_RELEASED';
+    onChainAnchorHash?: string;
+    network: string;
+    contractAddress: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+

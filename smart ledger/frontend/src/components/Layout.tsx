@@ -4,6 +4,7 @@ import { type UserRole } from '../types/trustfabric';
 export type NavTab =
   | 'landing'
   | 'overview'
+  | 'ngoverify'
   | 'grants'
   | 'donate'
   | 'fundflows'
@@ -69,6 +70,17 @@ export const Layout: React.FC<LayoutProps> = ({
             onClick={() => onTabChange('overview')}
           >
             <span>Overview</span>
+          </button>
+
+          <button
+            className={`nav-item ${activeTab === 'ngoverify' ? 'active' : ''}`}
+            onClick={() => onTabChange('ngoverify')}
+            style={{ position: 'relative' }}
+          >
+            <span>🛡️ NGO Verification</span>
+            <span style={{ fontSize: '10px', background: '#F5A623', color: '#0f172a', fontWeight: 800, padding: '1px 5px', borderRadius: '3px' }}>
+              LIVE
+            </span>
           </button>
 
           <button

@@ -71,6 +71,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <button className="tf-nav-link" onClick={() => onNavigate('donate')}>
                 Live Donation
               </button>
+              <button
+                className="tf-nav-link"
+                onClick={() => onNavigate('ngoverify')}
+                style={{ color: '#b45309', fontWeight: 750 }}
+              >
+                NGO Verification 🛡️
+              </button>
               <button className="tf-nav-link" onClick={() => onNavigate('grants')}>
                 Grants & Policies
               </button>
