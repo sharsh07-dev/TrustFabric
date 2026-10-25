@@ -1,0 +1,905 @@
+{
+  "contractName": "TrustFabric",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_relayer",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "campaignId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "DuplicateCampaign",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "commitment",
+          "type": "bytes32"
+        }
+      ],
+      "name": "DuplicatePaymentCommitment",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "campaignId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "InactiveCampaign",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "RecipientTransferFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ReentrancyGuardReentrantCall",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "UnauthorizedCaller",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "campaignId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "UnknownCampaign",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroAddressNotAllowed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroAmountNotAllowed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroCommitmentNotAllowed",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "campaignId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousRecipient",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newRecipient",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        }
+      ],
+      "name": "CampaignRecipientUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "campaignId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        }
+      ],
+      "name": "CampaignRegistered",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "campaignId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "bool",
+          "name": "isActive",
+          "type": "bool"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        }
+      ],
+      "name": "CampaignStatusUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "donor",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "campaignId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amountWei",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "blockNumber",
+          "type": "uint256"
+        }
+      ],
+      "name": "DonationReceived",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "paymentCommitment",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "grantRefHash",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amountPaise",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes3",
+          "name": "currencyCode",
+          "type": "bytes3"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "relayer",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "blockNumber",
+          "type": "uint256"
+        }
+      ],
+      "name": "FiatDonationAnchored",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "merkleRoot",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "leafCount",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "relayer",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "blockNumber",
+          "type": "uint256"
+        }
+      ],
+      "name": "MerkleBatchAnchored",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousRelayer",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newRelayer",
+          "type": "address"
+        }
+      ],
+      "name": "RelayerUpdated",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "anchoredCommitmentList",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "anchors",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "paymentCommitment",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "grantRefHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amountPaise",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes3",
+          "name": "currencyCode",
+          "type": "bytes3"
+        },
+        {
+          "internalType": "address",
+          "name": "relayer",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "blockNumber",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "authorizedRelayer",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "batchList",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "batches",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "merkleRoot",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "leafCount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "relayer",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "blockNumber",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "campaignIdList",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "campaigns",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "campaignId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address payable",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "internalType": "bool",
+          "name": "isActive",
+          "type": "bool"
+        },
+        {
+          "internalType": "uint256",
+          "name": "totalDonatedWei",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "donationCount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "createdAt",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "campaignId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "donate",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "paymentCommitment",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getAnchor",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "exists",
+          "type": "bool"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "grantRefHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amountPaise",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes3",
+          "name": "currencyCode",
+          "type": "bytes3"
+        },
+        {
+          "internalType": "address",
+          "name": "relayer",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "blockNumber",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getBatch",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "exists",
+          "type": "bool"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "merkleRoot",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "leafCount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "relayer",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "blockNumber",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "campaignId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getCampaign",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "exists",
+          "type": "bool"
+        },
+        {
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "internalType": "bool",
+          "name": "isActive",
+          "type": "bool"
+        },
+        {
+          "internalType": "uint256",
+          "name": "totalDonatedWei",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "donationCount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "createdAt",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "merkleRoot",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "leafCount",
+          "type": "uint256"
+        }
+      ],
+      "name": "recordBatchMerkleRoot",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "grantRefHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "paymentCommitment",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amountPaise",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes3",
+          "name": "currencyCode",
+          "type": "bytes3"
+        }
+      ],
+      "name": "recordFiatDonation",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "campaignId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address payable",
+          "name": "recipient",
+          "type": "address"
+        }
+      ],
+      "name": "registerCampaign",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "campaignId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address payable",
+          "name": "newRecipient",
+          "type": "address"
+        }
+      ],
+      "name": "setCampaignRecipient",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "campaignId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bool",
+          "name": "isActive",
+          "type": "bool"
+        }
+      ],
+      "name": "setCampaignStatus",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_newRelayer",
+          "type": "address"
+        }
+      ],
+      "name": "setRelayer",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "totalAnchored",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "totalBatches",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "totalCampaigns",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "root",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "leaf",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32[]",
+          "name": "proof",
+          "type": "bytes32[]"
+        }
+      ],
+      "name": "verifyMerkleProof",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    }
+  ],
+  "bytecode": "608060405234801561000f575f80fd5b5060405161158138038061158183398101604081905261002e916100b0565b6001600160a01b038116610055576040516342bcdf7f60e11b815260040160405180910390fd5b5f80546001600160a01b031990811633178255600180546001600160a01b0385169216821781556002556040519091907f605ca4e43489fb38b91aa63dd9147cd3847957694b080b9285ec898b34269f0c908290a3506100dd565b5f602082840312156100c0575f80fd5b81516001600160a01b03811681146100d6575f80fd5b9392505050565b611497806100ea5f395ff3fe608060405260043610610131575f3560e01c806394010d25116100a8578063b25ca2a91161006d578063b25ca2a91461048e578063c37067fa146104ad578063c81e25ab146104c0578063cabe04521461054e578063ed42136f146105aa578063ffa015b214610601575f80fd5b806394010d25146102f5578063993e5891146103145780639eca2f1e14610333578063a212e36f146103cd578063b01b6d53146103e1575f80fd5b806369ff6abb116100f957806369ff6abb146101e65780636fd93f8e146101fa5780637feb51d914610219578063869aa8901461028157806388cc22ad146102a05780638da5cb5b146102bf575f80fd5b806302932f5614610135578063141b76d8146101585780632faa4ad014610187578063360101ae146101a85780636548e9bc146101c7575b5f80fd5b348015610140575f80fd5b506004545b6040519081526020015b60405180910390f35b348015610163575f80fd5b50610177610172366004611274565b610620565b604051901515815260200161014f565b348015610192575f80fd5b506101a66101a13660046112b4565b610808565b005b3480156101b3575f80fd5b506101456101c23660046112e2565b6108fd565b3480156101d2575f80fd5b506101a66101e13660046112f9565b61091c565b3480156101f1575f80fd5b50600854610145565b348015610205575f80fd5b506101456102143660046112e2565b6109be565b348015610224575f80fd5b506102386102333660046112e2565b6109cd565b6040805197151588526020880196909652948601939093526001600160e81b031990911660608501526001600160a01b0316608084015260a083015260c082015260e00161014f565b34801561028c575f80fd5b506101a661029b36600461131b565b610a54565b3480156102ab575f80fd5b506101456102ba3660046112e2565b610b2a565b3480156102ca575f80fd5b505f546102dd906001600160a01b031681565b6040516001600160a01b03909116815260200161014f565b348015610300575f80fd5b5061017761030f366004611342565b610b39565b34801561031f575f80fd5b506101a661032e3660046112b4565b610d63565b34801561033e575f80fd5b5061039261034d3660046112e2565b600360208190525f91825260409091208054600182015460028301549383015460049093015491936001600160a01b03821693600160a01b90920460ff169290919086565b604080519687526001600160a01b039095166020870152921515938501939093526060840152608083019190915260a082015260c00161014f565b3480156103d8575f80fd5b50600654610145565b3480156103ec575f80fd5b506104476103fb3660046112e2565b600560208190525f918252604090912080546001820154600283015460038401546004850154949095015492949193909260e883901b92630100000090046001600160a01b0316919087565b604080519788526020880196909652948601939093526001600160e81b031990911660608501526001600160a01b0316608084015260a083015260c082015260e00161014f565b348015610499575f80fd5b506001546102dd906001600160a01b031681565b6101a66104bb3660046112e2565b610f01565b3480156104cb575f80fd5b506105186104da3660046112e2565b60076020525f90815260409020805460018201546002830154600384015460048501546005909501549394929391926001600160a01b039091169186565b604080519687526020870195909552938501929092526001600160a01b03166060840152608083015260a082015260c00161014f565b348015610559575f80fd5b5061056d6105683660046112e2565b6110d5565b6040805196151587526001600160a01b039095166020870152921515938501939093526060840152608083019190915260a082015260c00161014f565b3480156105b5575f80fd5b506105c96105c43660046112e2565b61115a565b6040805196151587526020870195909552938501929092526001600160a01b03166060840152608083015260a082015260c00161014f565b34801561060c575f80fd5b5061017761061b36600461138c565b6111c8565b6001545f906001600160a01b0316331480159061064757505f546001600160a01b03163314155b1561066557604051635c427cd960e01b815260040160405180910390fd5b83610683576040516338a4736760e21b815260040160405180910390fd5b826106a1576040516338a4736760e21b815260040160405180910390fd5b815f036106c1576040516307a1cab560e11b815260040160405180910390fd5b5f84815260076020526040902054156106f557604051630b2479af60e21b8152600481018590526024015b60405180910390fd5b6040805160c0810182528581526020808201868152828401868152336060850181815242608087018181524360a089018181525f8f815260079099528a892099518a5596516001808b0191909155955160028a015592516003890180546001600160a01b03929092166001600160a01b031990921691909117905551600488015593516005909601959095556008805492830181559093527ff3f7a9fe364faab93b216da50a3214154f22a0a2b415b23a84c8169e8b636ee30188905592519092869288927fc40aeb1dc51151863b43739bcc4034430ad598867f836b65850b9a52ffc46f23926107f6928983526020830191909152604082015260600190565b60405180910390a45060019392505050565b5f546001600160a01b0316331461083257604051635c427cd960e01b815260040160405180910390fd5b6001600160a01b038116610859576040516342bcdf7f60e11b815260040160405180910390fd5b5f82815260036020526040902060018101546001600160a01b031661089457604051633c3624df60e01b8152600481018490526024016106ec565b6001810180546001600160a01b038481166001600160a01b03198316811790935560405191169190829086907fc74622d3707186ea73002d14c386a880db2422ec8b21a76adffe7107a5a8dd51906108ef9042815260200190565b60405180910390a450505050565b6008818154811061090c575f80fd5b5f91825260209091200154905081565b5f546001600160a01b0316331461094657604051635c427cd960e01b815260040160405180910390fd5b6001600160a01b03811661096d576040516342bcdf7f60e11b815260040160405180910390fd5b600180546001600160a01b038381166001600160a01b0319831681179093556040519116919082907f605ca4e43489fb38b91aa63dd9147cd3847957694b080b9285ec898b34269f0c905f90a35050565b6004818154811061090c575f80fd5b5f8181526005602052604081208054829182918291829182918291610a0757505f9650869550859450849350839250829150819050610a49565b600181810154600283015460038401546004850154600590950154939b50919950975060e881901b9650630100000090046001600160a01b0316945090925090505b919395979092949650565b5f546001600160a01b03163314610a7e57604051635c427cd960e01b815260040160405180910390fd5b5f828152600360205260409020600101546001600160a01b0316610ab857604051633c3624df60e01b8152600481018390526024016106ec565b5f82815260036020526040908190206001018054831515600160a01b0260ff60a01b199091161790555182907f445348ab5091510b942c1bf627d1b5c6e7fc00aaa7d7892f6fc388d7c979f8e790610b1e90849042909115158252602082015260400190565b60405180910390a25050565b6006818154811061090c575f80fd5b6001545f906001600160a01b03163314801590610b6057505f546001600160a01b03163314155b15610b7e57604051635c427cd960e01b815260040160405180910390fd5b83610b9c576040516338a4736760e21b815260040160405180910390fd5b825f03610bbc576040516307a1cab560e11b815260040160405180910390fd5b5f8481526005602052604090205415610beb57604051630b2479af60e21b8152600481018590526024016106ec565b5f6040518060e00160405280868152602001878152602001858152602001846001600160e81b0319168152602001336001600160a01b031681526020014281526020014381525090508060055f8781526020019081526020015f205f820151815f015560208201518160010155604082015181600201556060820151816003015f6101000a81548162ffffff021916908360e81c021790555060808201518160030160036101000a8154816001600160a01b0302191690836001600160a01b0316021790555060a0820151816004015560c08201518160050155905050600685908060018154018082558091505060019003905f5260205f20015f9091909190915055336001600160a01b031686867fc87b237b350b545599f43cb7f16e8218f431963e6ad1dfc515d873886efb24df87874243604051610d4f94939291909384526001600160e81b03199290921660208401526040830152606082015260800190565b60405180910390a450600195945050505050565b5f546001600160a01b03163314610d8d57604051635c427cd960e01b815260040160405180910390fd5b81610dab576040516338a4736760e21b815260040160405180910390fd5b6001600160a01b038116610dd2576040516342bcdf7f60e11b815260040160405180910390fd5b5f828152600360205260409020600101546001600160a01b031615610e0d576040516322fdeb2f60e11b8152600481018390526024016106ec565b6040805160c0810182528381526001600160a01b03838116602080840182815260018587018181525f60608801818152608089018281524260a08b018181528e85526003808a528d86209c518d5597518c8801805497511515600160a01b026001600160a81b031990981691909c161795909517909955905160028a0155519388019390935551600496870155855490810186559490527f8a35acfbc15ff81a39ae7d344fd709f28e8600b4aa8c65c6b64bfe7fe36bd19b909301869055925190815284917f2f6ec58843c278837cf2d51644906f9486ba0ff7096506cf09c133259d8b6c7c910160405180910390a35050565b6002805403610f2357604051633ee5aeb560e01b815260040160405180910390fd5b60028055345f03610f47576040516307a1cab560e11b815260040160405180910390fd5b5f81815260036020526040902060018101546001600160a01b0316610f8257604051633c3624df60e01b8152600481018390526024016106ec565b6001810154600160a01b900460ff16610fb1576040516321ec572f60e01b8152600481018390526024016106ec565b60018101546002820180546001600160a01b0390921691349182915f90610fd990849061141c565b925050819055506001836003015f828254610ff4919061141c565b909155505060408051828152426020820152438183015290516001600160a01b03841691869133917f9bed31c21e50d7c2ae72178652d3801e32a3f0b994a970f766b071771f5d69fb919081900360600190a45f826001600160a01b0316826040515f6040518083038185875af1925050503d805f8114611090576040519150601f19603f3d011682016040523d82523d5f602084013e611095565b606091505b50509050806110c9576040516342b96df560e11b81526001600160a01b0384166004820152602481018390526044016106ec565b50506001600255505050565b5f818152600360205260408120600181015482918291829182918291906001600160a01b0316611117575f805f805f8096509650965096509650965050611151565b600181810154600283015460038401546004909401549299506001600160a01b0382169850600160a01b90910460ff169650945090925090505b91939550919395565b5f8181526007602052604081208054829182918291829182919061119057505f9550859450849350839250829150819050611151565b600181810154600283015460038401546004850154600590950154939c929b509099506001600160a01b031697509195509350915050565b5f83815b83811015611268575f8585838181106111e7576111e7611435565b905060200201359050808311611228576040805160208101859052908101829052606001604051602081830303815290604052805190602001209250611255565b60408051602081018390529081018490526060016040516020818303038152906040528051906020012092505b508061126081611449565b9150506111cc565b50909414949350505050565b5f805f60608486031215611286575f80fd5b505081359360208301359350604090920135919050565b6001600160a01b03811681146112b1575f80fd5b50565b5f80604083850312156112c5575f80fd5b8235915060208301356112d78161129d565b809150509250929050565b5f602082840312156112f2575f80fd5b5035919050565b5f60208284031215611309575f80fd5b81356113148161129d565b9392505050565b5f806040838503121561132c575f80fd5b82359150602083013580151581146112d7575f80fd5b5f805f8060808587031215611355575f80fd5b84359350602085013592506040850135915060608501356001600160e81b031981168114611381575f80fd5b939692955090935050565b5f805f806060858703121561139f575f80fd5b8435935060208501359250604085013567ffffffffffffffff808211156113c4575f80fd5b818701915087601f8301126113d7575f80fd5b8135818111156113e5575f80fd5b8860208260051b85010111156113f9575f80fd5b95989497505060200194505050565b634e487b7160e01b5f52601160045260245ffd5b8082018082111561142f5761142f611408565b92915050565b634e487b7160e01b5f52603260045260245ffd5b5f6001820161145a5761145a611408565b506001019056fea2646970667358221220d7c1195c861d7ea843c02905780799bc95a05ae06bc6da45acaae295dfd0e2af64736f6c63430008140033"
+}
