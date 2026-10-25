@@ -34,6 +34,7 @@
     "@types/node": "^24.19.2",
     "@types/pdf-parse": "^1.1.5",
     "prisma": "^5.22.0",
+    "solc": "^0.8.20",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2",
     "vitest": "^3.0.7"

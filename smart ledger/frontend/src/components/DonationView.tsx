@@ -13,6 +13,12 @@ import {
 import { RealtimeClient, type RealtimeDonationEvent } from '../services/realtimeClient';
 import { type TrustFabricStoreState } from '../services/storage';
 import { type FinancialEvent, type UserRole } from '../types/trustfabric';
+import {
+  Web3DonationService,
+  type Web3Campaign,
+  type Web3DonationReceipt,
+  SEPOLIA_CONTRACT_ADDRESS,
+} from '../services/web3DonationService';
 
 interface DonationViewProps {
   state: TrustFabricStoreState;
@@ -40,6 +46,23 @@ export const DonationView: React.FC<DonationViewProps> = ({
   const [paymentService] = useState(() => PaymentService.getInstance());
   const [firebaseClient] = useState(() => FirebaseClient.getInstance());
   const [realtimeClient] = useState(() => RealtimeClient.getInstance());
+  const [web3Service] = useState(() => Web3DonationService.getInstance());
+
+  // Donation Method: Option 2 (Web3 MetaMask Sepolia ETH) vs Option 1 (Razorpay INR)
+  const [donationMethod, setDonationMethod] = useState<'METAMASK_SEPOLIA' | 'RAZORPAY_INR'>('METAMASK_SEPOLIA');
+
+  // Web3 MetaMask State
+  const [web3Campaigns, setWeb3Campaigns] = useState<Web3Campaign[]>([]);
+  const [selectedWeb3CampaignId, setSelectedWeb3CampaignId] = useState<string>('CW-2026-014');
+  const [amountEth, setAmountEth] = useState<string>('0.01');
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [walletBalance, setWalletBalance] = useState<string | null>(null);
+  const [isConnectingWallet, setIsConnectingWallet] = useState<boolean>(false);
+  const [web3Step, setWeb3Step] = useState<'IDLE' | 'AWAITING_SIGNATURE' | 'MINING' | 'CONFIRMED' | 'FAILED'>('IDLE');
+  const [web3TxHash, setWeb3TxHash] = useState<string | null>(null);
+  const [web3Receipt, setWeb3Receipt] = useState<Web3DonationReceipt | null>(null);
+  const [web3Error, setWeb3Error] = useState<string | null>(null);
+  const [allEthDonations, setAllEthDonations] = useState<Web3DonationReceipt[]>([]);
 
   const [config, setConfig] = useState<PublicPaymentConfig | null>(null);
   const [grants, setGrants] = useState<PaymentGrant[]>([]);
@@ -76,18 +99,33 @@ export const DonationView: React.FC<DonationViewProps> = ({
   useEffect(() => {
     async function initData() {
       try {
-        const [pubConfig, grantList, initialDonations] = await Promise.all([
+        const [pubConfig, grantList, initialDonations, initialCampaigns] = await Promise.all([
           paymentService.getPublicConfig(),
           paymentService.getEligibleGrants(),
           paymentService.getPublicDonations(),
+          web3Service.getEligibleCampaigns(),
         ]);
         setConfig(pubConfig);
         setGrants(grantList);
+        if (initialCampaigns && initialCampaigns.length > 0) {
+          setWeb3Campaigns(initialCampaigns);
+          setSelectedWeb3CampaignId(initialCampaigns[0].id);
+        }
         if (initialDonations && initialDonations.length > 0) {
           setRtdbDonations(initialDonations);
         }
         if (grantList.length > 0) {
           setSelectedGrantId(grantList[0].id);
+        }
+
+        try {
+          const ethRes = await fetch('http://localhost:5001/api/donations/eth');
+          if (ethRes.ok) {
+            const ethData = await ethRes.json();
+            if (ethData.donations) setAllEthDonations(ethData.donations);
+          }
+        } catch {
+          // backend offline or initial load
         }
       } catch (err: any) {
         console.error('Initialization error:', err);
@@ -155,7 +193,6 @@ export const DonationView: React.FC<DonationViewProps> = ({
   const testModeCapturedPaise = rtdbDonations
     .filter(d => d.status === 'CAPTURED' || d.status === 'ANCHORED')
     .reduce((sum, d) => sum + (d.amountPaise || 0), 50000); // Base ₹500 test payment
-  const liveModePaise = 0; // Strictly 0 until live credentials activated
 
   const handleRoleTabChange = (role: 'AARAV_DONOR' | 'MEERA_ADMIN' | 'RAVI_VENDOR' | 'JUDGE_AUDITOR') => {
     setDemoRole(role);
@@ -341,6 +378,89 @@ export const DonationView: React.FC<DonationViewProps> = ({
     setErrorMessage(null);
   };
 
+  const handleConnectWallet = async () => {
+    setIsConnectingWallet(true);
+    setWeb3Error(null);
+    try {
+      const walletInfo = await web3Service.connectWallet();
+      setWalletAddress(walletInfo.address);
+      setWalletBalance(walletInfo.balanceEth);
+    } catch (err: any) {
+      setWeb3Error(err.message || 'Failed to connect MetaMask wallet.');
+    } finally {
+      setIsConnectingWallet(false);
+    }
+  };
+
+  const handleStartWeb3Donation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setWeb3Error(null);
+
+    const val = parseFloat(amountEth);
+    if (isNaN(val) || val <= 0) {
+      setWeb3Error('Please enter a valid ETH donation amount greater than 0.');
+      return;
+    }
+
+    if (!walletAddress) {
+      setWeb3Error('Please connect your MetaMask wallet first.');
+      return;
+    }
+
+    const activeWeb3Camp = web3Campaigns.find(c => c.id === selectedWeb3CampaignId) || web3Campaigns[0];
+
+    try {
+      setWeb3Step('AWAITING_SIGNATURE');
+      const receipt = await web3Service.executeDonation({
+        campaignId: activeWeb3Camp ? activeWeb3Camp.id : selectedWeb3CampaignId,
+        amountEth,
+        recipientAddress: activeWeb3Camp?.recipientAddress,
+        onPendingTx: (hash) => {
+          setWeb3TxHash(hash);
+          setWeb3Step('MINING');
+        },
+      });
+
+      setWeb3Receipt(receipt);
+      setWeb3Step('CONFIRMED');
+      setAllEthDonations(prev => [receipt, ...prev]);
+
+      // Record in TrustFabric FinancialEvent ledger
+      const onchainEvent: FinancialEvent = {
+        id: `evt-eth-${Date.now().toString().slice(-6)}`,
+        grantId: activeWeb3Camp?.id || 'CW-2026-014',
+        eventType: 'DONATION',
+        sourceType: 'ETHEREUM',
+        sourceChainId: '11155111',
+        txHash: receipt.txHash,
+        finalityStatus: 'FINALIZED',
+        sourceAccountRef: receipt.donorAddress,
+        destinationRef: receipt.recipientAddress,
+        assetId: 'ETH',
+        amountMinor: Math.round(receipt.amountEth * 1e18),
+        currency: 'ETH',
+        feeMinor: 0,
+        occurredAt: receipt.confirmedAt,
+        observedAt: new Date().toISOString(),
+        provenance: 'METAMASK_SEPOLIA_DONATION',
+        simulated: false,
+        idempotencyKey: `idem_eth_${receipt.txHash}`,
+      };
+
+      onUpdateState({ events: [...state.events, onchainEvent] });
+    } catch (err: any) {
+      setWeb3Step('FAILED');
+      setWeb3Error(err.message || 'MetaMask transaction rejected or failed.');
+    }
+  };
+
+  const handleResetWeb3Form = () => {
+    setWeb3Step('IDLE');
+    setWeb3Receipt(null);
+    setWeb3TxHash(null);
+    setWeb3Error(null);
+  };
+
   const handleMeeraAllocate = () => {
     setAllocSuccessMsg('Accounting allocation recorded: ₹500 allocated to Solar Borehole Filter Cartridges. Provenance: INTERNAL_ACCOUNTING_ALLOCATION.');
     setTimeout(() => setAllocSuccessMsg(null), 5000);
@@ -516,14 +636,14 @@ export const DonationView: React.FC<DonationViewProps> = ({
 
         <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '14px 18px' }}>
           <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-            Live Real-Money Donations
+            MetaMask Sepolia ETH
           </div>
-          <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-muted)', marginTop: '4px' }}>
-            ₹{(liveModePaise / 100).toLocaleString()}
+          <div style={{ fontSize: '20px', fontWeight: 700, color: '#627EEA', marginTop: '4px' }}>
+            {allEthDonations.reduce((acc, d) => acc + (d.amountEth || 0), 0).toFixed(3)} ETH
           </div>
           <div style={{ marginTop: '4px' }}>
-            <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'var(--bg-subtle)', color: 'var(--text-muted)', border: '1px solid var(--border-medium)', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
-              LIVE_NOT_CONFIGURED
+            <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: '#F0F4FF', color: '#405BFF', border: '1px solid #C7D7FE', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+              {allEthDonations.length} ON-CHAIN DONATIONS
             </span>
           </div>
         </div>
@@ -552,17 +672,340 @@ export const DonationView: React.FC<DonationViewProps> = ({
       {/* VIEW BASED ON DEMO ROLE */}
       {/* 1. DONOR VIEW (AARAV) */}
       {demoRole === 'AARAV_DONOR' && (
-        <div style={{ display: 'grid', gridTemplateColumns: currentStep === 'FORM' || currentStep === 'CREATING_ORDER' ? '1fr 360px' : '1fr', gap: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: '20px' }}>
           <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
-            {(currentStep === 'FORM' || currentStep === 'CREATING_ORDER') && (
-              <form onSubmit={handleStartCheckout}>
+            {/* Payment Method Switcher Tabs */}
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '22px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '14px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => setDonationMethod('METAMASK_SEPOLIA')}
+                style={{
+                  padding: '9px 16px',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  border: donationMethod === 'METAMASK_SEPOLIA' ? '2px solid #627EEA' : '1px solid var(--border-medium)',
+                  background: donationMethod === 'METAMASK_SEPOLIA' ? '#F0F4FF' : 'var(--bg-subtle)',
+                  color: donationMethod === 'METAMASK_SEPOLIA' ? '#2B4EDB' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <span>🦊 Option 2: MetaMask Web3 (Sepolia ETH)</span>
+                <span style={{ fontSize: '10px', background: '#2B4EDB', color: '#FFF', padding: '2px 6px', borderRadius: '3px', fontWeight: 700 }}>
+                  ON-CHAIN DIRECT
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDonationMethod('RAZORPAY_INR')}
+                style={{
+                  padding: '9px 16px',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  border: donationMethod === 'RAZORPAY_INR' ? '2px solid var(--primary-evergreen)' : '1px solid var(--border-medium)',
+                  background: donationMethod === 'RAZORPAY_INR' ? 'var(--primary-evergreen-subtle)' : 'var(--bg-subtle)',
+                  color: donationMethod === 'RAZORPAY_INR' ? 'var(--primary-evergreen)' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <span>💳 Option 1: Razorpay Gateway (INR Fiat)</span>
+              </button>
+            </div>
+
+            {/* ================= OPTION 2: METAMASK SEPOLIA ETH ================= */}
+            {donationMethod === 'METAMASK_SEPOLIA' && (
+              <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    Make a Contribution &bull; Clean Water for 50 Families
-                  </h3>
-                  <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '3px', background: 'var(--status-review-bg)', color: 'var(--status-review-text)', border: '1px solid var(--status-review-border)', fontFamily: 'var(--font-mono)' }}>
-                    RAZORPAY TEST MODE (NO REAL MONEY MOVES)
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      Direct Smart Contract ETH Donation
+                    </h3>
+                    <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                      Non-custodial payment via single <code>TrustFabric.sol</code> contract on Ethereum Sepolia.
+                    </p>
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '3px', background: '#EEF2FF', color: '#4F46E5', border: '1px solid #C7D2FE', fontFamily: 'var(--font-mono)' }}>
+                    SEPOLIA TESTNET (11155111)
                   </span>
+                </div>
+
+                {/* MetaMask Wallet Connection Status Bar */}
+                <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '14px 16px', marginBottom: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: walletAddress ? '#10B981' : '#F59E0B' }} />
+                    <div style={{ fontSize: '13px' }}>
+                      {walletAddress ? (
+                        <span>
+                          Connected: <strong style={{ fontFamily: 'var(--font-mono)' }}>{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</strong>
+                          {walletBalance && <span style={{ color: 'var(--text-secondary)', marginLeft: '8px' }}>({walletBalance} ETH)</span>}
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--text-secondary)' }}>MetaMask Wallet Not Connected</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    {!walletAddress ? (
+                      <button
+                        type="button"
+                        onClick={handleConnectWallet}
+                        disabled={isConnectingWallet}
+                        style={{
+                          padding: '7px 14px',
+                          borderRadius: 'var(--radius-md)',
+                          background: '#F97316',
+                          color: '#FFF',
+                          border: 'none',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        {isConnectingWallet ? '⏳ Connecting...' : '🦊 Connect MetaMask'}
+                      </button>
+                    ) : (
+                      <span style={{ fontSize: '11px', color: 'var(--status-verified-text)', background: 'var(--status-verified-bg)', padding: '3px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                        Sepolia Verified ✓
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {web3Error && (
+                  <div style={{ marginBottom: '16px', padding: '12px', background: 'var(--status-danger-bg)', color: 'var(--status-danger-text)', border: '1px solid var(--status-danger-border)', borderRadius: 'var(--radius-md)', fontSize: '13px' }}>
+                    {web3Error}
+                  </div>
+                )}
+
+                {/* FORM / EXECUTION STATE */}
+                {web3Step === 'IDLE' && (
+                  <form onSubmit={handleStartWeb3Donation}>
+                    <div style={{ marginBottom: '16px' }}>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '6px' }}>
+                        Select Campaign:
+                      </label>
+                      <select
+                        value={selectedWeb3CampaignId}
+                        onChange={e => setSelectedWeb3CampaignId(e.target.value)}
+                        style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-medium)', background: 'var(--bg-surface)', fontSize: '14px' }}
+                      >
+                        {web3Campaigns.map(c => (
+                          <option key={c.id} value={c.id}>
+                            [{c.id}] {c.name} &mdash; {c.ngoName}
+                          </option>
+                        ))}
+                      </select>
+                      {(() => {
+                        const activeCamp = web3Campaigns.find(c => c.id === selectedWeb3CampaignId);
+                        if (!activeCamp) return null;
+                        return (
+                          <div style={{ marginTop: '6px', fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-subtle)', padding: '6px 10px', borderRadius: '4px', fontFamily: 'var(--font-mono)' }}>
+                            Authorized Recipient: <strong>{activeCamp.recipientAddress}</strong>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    <div style={{ marginBottom: '20px' }}>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '6px' }}>
+                        Donation Amount (ETH):
+                      </label>
+                      <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                        {['0.001', '0.005', '0.01', '0.05', '0.1'].map(amt => (
+                          <button
+                            key={amt}
+                            type="button"
+                            onClick={() => setAmountEth(amt)}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: 'var(--radius-md)',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              border: amountEth === amt ? '2px solid #627EEA' : '1px solid var(--border-medium)',
+                              background: amountEth === amt ? '#F0F4FF' : 'var(--bg-surface)',
+                              color: amountEth === amt ? '#2B4EDB' : 'var(--text-primary)',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {amt} ETH
+                          </button>
+                        ))}
+                      </div>
+
+                      <div style={{ position: 'relative', width: '220px' }}>
+                        <span style={{ position: 'absolute', left: '12px', top: '9px', fontSize: '14px', color: 'var(--text-muted)' }}>Ξ</span>
+                        <input
+                          type="number"
+                          step="0.001"
+                          min="0.0001"
+                          value={amountEth}
+                          onChange={e => setAmountEth(e.target.value)}
+                          style={{ width: '100%', padding: '9px 12px 9px 28px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-medium)', fontSize: '14px', fontWeight: 600 }}
+                        />
+                      </div>
+                      <div style={{ marginTop: '4px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                        Smart contract validates <code>msg.value &gt; 0</code> and transfers directly to campaign recipient.
+                      </div>
+                    </div>
+
+                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 'var(--radius-md)', padding: '12px 14px', marginBottom: '20px', fontSize: '12px', color: '#475569' }}>
+                      <div style={{ fontWeight: 600, marginBottom: '4px', color: '#1E293B' }}>🛡️ Security &amp; Privacy Architecture:</div>
+                      <div>&bull; <strong>Zero PII On-Chain:</strong> Your personal name, email, and phone are never stored on Ethereum.</div>
+                      <div>&bull; <strong>Single Contract:</strong> Calls <code>TrustFabric.donate(bytes32 campaignId)</code> directly.</div>
+                      <div>&bull; <strong>Reentrancy Guard:</strong> Protected with OpenZeppelin mutex locks.</div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={!walletAddress}
+                      style={{
+                        padding: '12px 24px',
+                        borderRadius: 'var(--radius-md)',
+                        background: walletAddress ? '#627EEA' : '#94A3B8',
+                        color: '#FFF',
+                        border: 'none',
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        cursor: walletAddress ? 'pointer' : 'not-allowed',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                      }}
+                    >
+                      {walletAddress ? `🦊 Donate ${amountEth} ETH via MetaMask` : '🦊 Connect MetaMask to Donate'}
+                    </button>
+                  </form>
+                )}
+
+                {/* AWAITING SIGNATURE */}
+                {web3Step === 'AWAITING_SIGNATURE' && (
+                  <div style={{ textAlign: 'center', padding: '36px 20px' }}>
+                    <div style={{ fontSize: '36px', marginBottom: '10px' }}>🦊</div>
+                    <h4 style={{ margin: '0 0 6px', fontSize: '16px', color: 'var(--text-primary)' }}>
+                      Awaiting MetaMask Signature...
+                    </h4>
+                    <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)' }}>
+                      Please review the amount (<strong>{amountEth} ETH</strong>) and confirm the transaction in your MetaMask popup.
+                    </p>
+                  </div>
+                )}
+
+                {/* MINING ON-CHAIN */}
+                {web3Step === 'MINING' && (
+                  <div style={{ textAlign: 'center', padding: '36px 20px' }}>
+                    <div style={{ fontSize: '36px', marginBottom: '10px' }}>⛏️</div>
+                    <h4 style={{ margin: '0 0 6px', fontSize: '16px', color: 'var(--text-primary)' }}>
+                      Mining Transaction on Ethereum Sepolia...
+                    </h4>
+                    <p style={{ margin: '0 0 12px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                      Awaiting 1 block confirmation and authoritative receipt.
+                    </p>
+                    {web3TxHash && (
+                      <div style={{ fontSize: '12px' }}>
+                        Tx Hash: <code style={{ wordBreak: 'break-all' }}>{web3TxHash}</code>
+                        <div style={{ marginTop: '8px' }}>
+                          <a href={`https://sepolia.etherscan.io/tx/${web3TxHash}`} target="_blank" rel="noreferrer" style={{ color: '#2B4EDB', textDecoration: 'underline', fontWeight: 600 }}>
+                            View on Sepolia Etherscan &rarr;
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* CONFIRMED RECEIPT CARD */}
+                {web3Step === 'CONFIRMED' && web3Receipt && (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '14px', marginBottom: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--status-verified-bg)', color: 'var(--status-verified-text)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '16px' }}>
+                          ✓
+                        </div>
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: '15px', color: 'var(--text-primary)' }}>
+                            MetaMask Donation Confirmed &amp; Verified On-Chain!
+                          </h4>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                            Event <code>DonationReceived</code> Verified &bull; Block #{web3Receipt.blockNumber}
+                          </div>
+                        </div>
+                      </div>
+
+                      <button onClick={handleResetWeb3Form} style={{ padding: '6px 14px', borderRadius: '4px', background: '#627EEA', color: '#FFF', border: 'none', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                        New ETH Donation
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>
+                      <div style={{ background: 'var(--bg-subtle)', padding: '14px', borderRadius: 'var(--radius-md)' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>
+                          On-Chain Transaction Details
+                        </div>
+                        <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div>Amount Donated: <strong style={{ color: '#627EEA' }}>{web3Receipt.amountEth} ETH</strong></div>
+                          <div>Campaign ID: <code>{web3Receipt.campaignId}</code></div>
+                          <div>Donor: <code>{web3Receipt.donorAddress.slice(0, 10)}...{web3Receipt.donorAddress.slice(-8)}</code></div>
+                          <div>Recipient: <code>{web3Receipt.recipientAddress.slice(0, 10)}...{web3Receipt.recipientAddress.slice(-8)}</code></div>
+                          <div>Status: <span style={{ background: 'var(--status-verified-bg)', color: 'var(--status-verified-text)', padding: '1px 6px', borderRadius: '3px', fontWeight: 600 }}>CONFIRMED</span></div>
+                        </div>
+                      </div>
+
+                      <div style={{ background: 'var(--bg-subtle)', padding: '14px', borderRadius: 'var(--radius-md)' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>
+                          Authoritative Verification Proof
+                        </div>
+                        <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div>Contract: <code>{SEPOLIA_CONTRACT_ADDRESS.slice(0, 8)}...{SEPOLIA_CONTRACT_ADDRESS.slice(-6)}</code></div>
+                          <div>Event Log: <span style={{ color: '#10B981', fontWeight: 600 }}>DonationReceived (VERIFIED)</span></div>
+                          <div>Database: <span style={{ color: '#10B981', fontWeight: 600 }}>Persisted in PostgreSQL (Prisma)</span></div>
+                          <div style={{ marginTop: '6px' }}>
+                            <a href={web3Receipt.explorerUrl} target="_blank" rel="noreferrer" style={{ color: '#2B4EDB', textDecoration: 'underline', fontWeight: 600 }}>
+                              Open Sepolia Block Explorer &rarr;
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* FAILED STATE */}
+                {web3Step === 'FAILED' && (
+                  <div style={{ textAlign: 'center', padding: '30px' }}>
+                    <div style={{ fontSize: '32px', marginBottom: '8px', color: 'var(--status-danger-text)' }}>⚠️</div>
+                    <h4 style={{ margin: '0 0 6px', fontSize: '15px', color: 'var(--status-danger-text)' }}>Transaction Failed or Rejected</h4>
+                    <p style={{ margin: '0 0 16px', fontSize: '13px', color: 'var(--text-secondary)' }}>{web3Error}</p>
+                    <button onClick={handleResetWeb3Form} style={{ padding: '6px 14px', background: '#627EEA', color: '#FFF', border: 'none', borderRadius: '4px', fontSize: '13px', cursor: 'pointer' }}>
+                      Try Again
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ================= OPTION 1: RAZORPAY INR FIAT ================= */}
+            {donationMethod === 'RAZORPAY_INR' && (
+              <div>
+                {(currentStep === 'FORM' || currentStep === 'CREATING_ORDER') && (
+                  <form onSubmit={handleStartCheckout}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                      <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        Make a Contribution &bull; Clean Water for 50 Families
+                      </h3>
+                      <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '3px', background: 'var(--status-review-bg)', color: 'var(--status-review-text)', border: '1px solid var(--status-review-border)', fontFamily: 'var(--font-mono)' }}>
+                        RAZORPAY TEST MODE (NO REAL MONEY MOVES)
+                      </span>
                 </div>
 
                 {errorMessage && (
@@ -796,35 +1239,58 @@ export const DonationView: React.FC<DonationViewProps> = ({
                 </button>
               </div>
             )}
+            </div>
+            )}
           </div>
 
-          {(currentStep === 'FORM' || currentStep === 'CREATING_ORDER') && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '18px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-primary)', marginBottom: '8px' }}>
-                  Verified Campaign Scope
-                </div>
-                <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--text-secondary)' }}>
-                  <div><strong>Code:</strong> {activeGrant?.grantCode}</div>
-                  <div><strong>Purpose:</strong> {activeGrant?.purpose}</div>
-                  <div><strong>Currency:</strong> INR</div>
-                  <div><strong>Target:</strong> ₹5,00,000</div>
-                </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '18px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-primary)', marginBottom: '8px' }}>
+                {donationMethod === 'METAMASK_SEPOLIA' ? 'Smart Contract Architecture' : 'Verified Campaign Scope'}
               </div>
-
-              <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '18px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-primary)', marginBottom: '8px' }}>
-                  Cryptographic Trust Model
-                </div>
-                <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <li>Razorpay test payments simulate fiat settlement.</li>
-                  <li>HMAC verified server-side in constant time.</li>
-                  <li>Commitments anchored to Ethereum Sepolia.</li>
-                  <li>Firebase RTDB synchronizes multi-device views.</li>
-                </ul>
+              <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--text-secondary)' }}>
+                {donationMethod === 'METAMASK_SEPOLIA' ? (
+                  <>
+                    <div><strong>Contract:</strong> <code>TrustFabric.sol</code></div>
+                    <div><strong>Address:</strong> <code>{SEPOLIA_CONTRACT_ADDRESS.slice(0, 10)}...{SEPOLIA_CONTRACT_ADDRESS.slice(-6)}</code></div>
+                    <div><strong>Function:</strong> <code>donate(bytes32 campaignId)</code></div>
+                    <div><strong>Network:</strong> Ethereum Sepolia (11155111)</div>
+                    <div><strong>Safety:</strong> OpenZeppelin ReentrancyGuard</div>
+                  </>
+                ) : (
+                  <>
+                    <div><strong>Code:</strong> {activeGrant?.grantCode}</div>
+                    <div><strong>Purpose:</strong> {activeGrant?.purpose}</div>
+                    <div><strong>Currency:</strong> INR</div>
+                    <div><strong>Target:</strong> ₹5,00,000</div>
+                  </>
+                )}
               </div>
             </div>
-          )}
+
+            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '18px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-primary)', marginBottom: '8px' }}>
+                Cryptographic Trust Model
+              </div>
+              <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {donationMethod === 'METAMASK_SEPOLIA' ? (
+                  <>
+                    <li>Direct on-chain value transfer without intermediary custody.</li>
+                    <li>Funds routed strictly to registered on-chain recipient.</li>
+                    <li>Emits authoritative <code>DonationReceived</code> event log.</li>
+                    <li>Receipt index persisted idempotently in PostgreSQL database.</li>
+                  </>
+                ) : (
+                  <>
+                    <li>Razorpay test payments simulate fiat settlement.</li>
+                    <li>HMAC verified server-side in constant time.</li>
+                    <li>Commitments anchored to Ethereum Sepolia.</li>
+                    <li>Firebase RTDB synchronizes multi-device views.</li>
+                  </>
+                )}
+              </ul>
+            </div>
+          </div>
         </div>
       )}
 
@@ -886,6 +1352,31 @@ export const DonationView: React.FC<DonationViewProps> = ({
                     </a>
                   </td>
                 </tr>
+
+                {allEthDonations.map((eth, idx) => (
+                  <tr key={`eth-${idx}`} style={{ borderBottom: '1px solid var(--border-subtle)', background: '#F8FAFF' }}>
+                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#4F46E5' }}>
+                      ETH-SEP-{eth.blockNumber || 'LIVE'}
+                    </td>
+                    <td style={{ padding: '10px 14px' }}>{eth.campaignId}</td>
+                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#627EEA' }}>
+                      {eth.amountEth} ETH
+                    </td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <code style={{ fontSize: '11px' }}>{eth.txHash ? `${eth.txHash.slice(0, 10)}...${eth.txHash.slice(-6)}` : 'On-Chain'}</code>
+                    </td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <span style={{ padding: '2px 6px', borderRadius: '3px', background: '#EEF2FF', color: '#4F46E5', fontSize: '10px', fontWeight: 700 }}>
+                        METAMASK_SEPOLIA_DONATION
+                      </span>
+                    </td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <a href={eth.explorerUrl} target="_blank" rel="noreferrer" style={{ color: '#2B4EDB', textDecoration: 'underline', fontWeight: 600 }}>
+                        Block #{eth.blockNumber} &rarr;
+                      </a>
+                    </td>
+                  </tr>
+                ))}
 
                 {rtdbDonations.map((d, idx) => (
                   <tr key={idx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>

@@ -59,6 +59,23 @@ export interface DbAuditBlockRecord {
   createdAt: string;
 }
 
+export interface DbEthDonationRecord {
+  id: string;
+  txHash: string;
+  blockNumber: number;
+  campaignId: string;
+  donorAddress: string;
+  recipientAddress: string;
+  amountWei: string;
+  amountEth: number;
+  status: string;
+  chainId: number;
+  contractAddress: string;
+  confirmedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /**
  * Cloud Database Persistence Service (PostgreSQL / Supabase + Prisma)
  * Connects to managed cloud Postgres database when credentials are configured.
@@ -75,6 +92,7 @@ export class DbPersistenceService {
   private usersTable: Map<string, DbUserRecord> = new Map();
   private expenseClaimsTable: Map<string, DbExpenseClaimRecord> = new Map();
   private nullifierRegistry: Map<string, DbNullifierRecord> = new Map();
+  private ethDonationsTable: Map<string, DbEthDonationRecord> = new Map();
 
   private constructor() {
     this.memDb = PaymentDatabase.getInstance();
@@ -457,5 +475,88 @@ export class DbPersistenceService {
 
   public async getAuditBlocks(): Promise<PaymentAuditEvent[]> {
     return this.memDb.auditEvents;
+  }
+
+  // -------------------------------------------------------------
+  // On-Chain MetaMask Sepolia ETH Donations
+  // -------------------------------------------------------------
+  public async recordEthDonation(params: Omit<DbEthDonationRecord, 'id' | 'createdAt' | 'updatedAt' | 'confirmedAt'> & { confirmedAt?: string }): Promise<DbEthDonationRecord> {
+    const existing = await this.getEthDonationByTxHash(params.txHash);
+    if (existing) {
+      return existing; // Idempotent: return existing recorded donation
+    }
+
+    const now = new Date().toISOString();
+    const record: DbEthDonationRecord = {
+      id: `eth-don-${crypto.randomBytes(6).toString('hex')}`,
+      ...params,
+      confirmedAt: params.confirmedAt || now,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    if (this.isConnectedToPostgres && this.prismaClient) {
+      try {
+        await this.prismaClient.ethDonation.create({
+          data: {
+            id: record.id,
+            txHash: record.txHash,
+            blockNumber: record.blockNumber,
+            campaignId: record.campaignId,
+            donorAddress: record.donorAddress,
+            recipientAddress: record.recipientAddress,
+            amountWei: record.amountWei,
+            amountEth: record.amountEth,
+            status: record.status,
+            chainId: record.chainId,
+            contractAddress: record.contractAddress,
+            confirmedAt: new Date(record.confirmedAt),
+          },
+        });
+      } catch (err: any) {
+        console.warn('[DbPersistenceService] Failed to persist ethDonation in Postgres, saved in memory fallback:', err.message);
+      }
+    }
+
+    this.ethDonationsTable.set(record.txHash.toLowerCase(), record);
+    return record;
+  }
+
+  public async getEthDonationByTxHash(txHash: string): Promise<DbEthDonationRecord | undefined> {
+    if (this.isConnectedToPostgres && this.prismaClient) {
+      try {
+        const rec = await this.prismaClient.ethDonation.findUnique({ where: { txHash } });
+        if (rec) {
+          return {
+            ...rec,
+            confirmedAt: rec.confirmedAt.toISOString(),
+            createdAt: rec.createdAt.toISOString(),
+            updatedAt: rec.updatedAt.toISOString(),
+          };
+        }
+      } catch {
+        // Fallback to in-memory
+      }
+    }
+    return this.ethDonationsTable.get(txHash.toLowerCase());
+  }
+
+  public async getAllEthDonations(): Promise<DbEthDonationRecord[]> {
+    if (this.isConnectedToPostgres && this.prismaClient) {
+      try {
+        const records = await this.prismaClient.ethDonation.findMany({ orderBy: { confirmedAt: 'desc' } });
+        return records.map((r: any) => ({
+          ...r,
+          confirmedAt: r.confirmedAt.toISOString(),
+          createdAt: r.createdAt.toISOString(),
+          updatedAt: r.updatedAt.toISOString(),
+        }));
+      } catch {
+        // Fallback to in-memory
+      }
+    }
+    return Array.from(this.ethDonationsTable.values()).sort(
+      (a, b) => new Date(b.confirmedAt).getTime() - new Date(a.confirmedAt).getTime()
+    );
   }
 }

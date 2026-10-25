@@ -198,6 +198,31 @@ model OnchainPaymentAnchor {
 }
 
 // -------------------------------------------------------------
+// 7b. On-Chain MetaMask Sepolia ETH Donations
+// -------------------------------------------------------------
+model EthDonation {
+  id               String   @id @default(uuid())
+  txHash           String   @unique
+  blockNumber      Int
+  campaignId       String
+  donorAddress     String
+  recipientAddress String
+  amountWei        String
+  amountEth        Float
+  status           String   @default("CONFIRMED")
+  chainId          Int      @default(11155111) // Sepolia EVM
+  contractAddress  String
+  confirmedAt      DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([campaignId])
+  @@index([donorAddress])
+  @@index([txHash])
+  @@map("eth_donations")
+}
+
+// -------------------------------------------------------------
 // 8. NGO Regulatory Verification & Escrow Applications
 // -------------------------------------------------------------
 model NgoApplication {

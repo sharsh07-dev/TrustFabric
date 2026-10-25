@@ -40,3 +40,4 @@ Thumbs.db
 # Local evidence vault files
 .evidence_vault/
 server/.evidence_vault/
+*.traineddata
