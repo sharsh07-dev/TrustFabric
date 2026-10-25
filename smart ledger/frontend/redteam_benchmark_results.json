@@ -1,7 +1,7 @@
 {
   "benchmark": "TRUSTFABRIC_REDTEAM_PS42_R15",
   "version": "1.0.0",
-  "evaluatedAt": "2026-10-25T15:11:44.272Z",
+  "evaluatedAt": "2026-10-25T15:22:57.437Z",
   "seed": 2026042,
   "metrics": {
     "totalCount": 100,
@@ -39,7 +39,7 @@
         "ruleName": "Payment Record Difference"
       }
     },
-    "evaluatedAt": "2026-10-25T15:11:44.272Z"
+    "evaluatedAt": "2026-10-25T15:22:57.437Z"
   },
   "records": [
     {
