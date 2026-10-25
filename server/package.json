@@ -11,10 +11,13 @@
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "@supabase/supabase-js": "^2.118.0",
+    "bullmq": "^6.4.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
+    "ethers": "^6.17.0",
     "express": "^4.21.2",
     "firebase": "^13.1.0",
+    "ioredis": "^6.0.0",
     "multer": "^2.5.0"
   },
   "devDependencies": {

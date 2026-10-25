@@ -164,4 +164,124 @@ contract TrustFabricFiatAnchor {
     function totalAnchored() external view returns (uint256) {
         return anchoredCommitmentList.length;
     }
+
+    // -------------------------------------------------------------
+    // Merkle Root Batch Pipeline (100+ Concurrent Commitments)
+    // -------------------------------------------------------------
+    struct MerkleBatchRecord {
+        bytes32 batchId;
+        bytes32 merkleRoot;
+        uint256 leafCount;
+        address relayer;
+        uint256 timestamp;
+        uint256 blockNumber;
+    }
+
+    // Mapping: batchId => MerkleBatchRecord
+    mapping(bytes32 => MerkleBatchRecord) public batches;
+    bytes32[] public batchList;
+
+    event MerkleBatchAnchored(
+        bytes32 indexed batchId,
+        bytes32 indexed merkleRoot,
+        uint256 leafCount,
+        address indexed relayer,
+        uint256 timestamp,
+        uint256 blockNumber
+    );
+
+    /**
+     * @notice Records an aggregated Merkle root batch on Sepolia
+     * @param batchId Unique batch identifier hash
+     * @param merkleRoot Cryptographic root of the batch commitments
+     * @param leafCount Number of individual commitments in this batch
+     */
+    function recordBatchMerkleRoot(
+        bytes32 batchId,
+        bytes32 merkleRoot,
+        uint256 leafCount
+    ) external onlyRelayer returns (bool) {
+        if (batchId == bytes32(0)) revert ZeroCommitmentNotAllowed();
+        if (merkleRoot == bytes32(0)) revert ZeroCommitmentNotAllowed();
+        if (leafCount == 0) revert ZeroAmountNotAllowed();
+        if (batches[batchId].batchId != bytes32(0)) {
+            revert DuplicatePaymentCommitment(batchId);
+        }
+
+        batches[batchId] = MerkleBatchRecord({
+            batchId: batchId,
+            merkleRoot: merkleRoot,
+            leafCount: leafCount,
+            relayer: msg.sender,
+            timestamp: block.timestamp,
+            blockNumber: block.number
+        });
+        batchList.push(batchId);
+
+        emit MerkleBatchAnchored(
+            batchId,
+            merkleRoot,
+            leafCount,
+            msg.sender,
+            block.timestamp,
+            block.number
+        );
+
+        return true;
+    }
+
+    /**
+     * @notice Retrieves a Merkle batch record by batch ID
+     */
+    function getBatch(bytes32 batchId)
+        external
+        view
+        returns (
+            bool exists,
+            bytes32 merkleRoot,
+            uint256 leafCount,
+            address relayer,
+            uint256 timestamp,
+            uint256 blockNumber
+        )
+    {
+        MerkleBatchRecord storage record = batches[batchId];
+        if (record.batchId == bytes32(0)) {
+            return (false, bytes32(0), 0, address(0), 0, 0);
+        }
+        return (
+            true,
+            record.merkleRoot,
+            record.leafCount,
+            record.relayer,
+            record.timestamp,
+            record.blockNumber
+        );
+    }
+
+    /**
+     * @notice On-chain verification of a cryptographic Merkle inclusion proof
+     * Uses OpenZeppelin standard sorted-pairs Keccak256 algorithm
+     */
+    function verifyMerkleProof(
+        bytes32 root,
+        bytes32 leaf,
+        bytes32[] calldata proof
+    ) public pure returns (bool) {
+        bytes32 computedHash = leaf;
+        for (uint256 i = 0; i < proof.length; i++) {
+            bytes32 proofElement = proof[i];
+            if (computedHash <= proofElement) {
+                computedHash = keccak256(abi.encodePacked(computedHash, proofElement));
+            } else {
+                computedHash = keccak256(abi.encodePacked(proofElement, computedHash));
+            }
+        }
+        return computedHash == root;
+    }
+
+    function totalBatches() external view returns (uint256) {
+        return batchList.length;
+    }
 }
+

@@ -36,3 +36,7 @@ Thumbs.db
 
 # Soroban / Stellar
 .stellar/
+
+# Local evidence vault files
+.evidence_vault/
+server/.evidence_vault/

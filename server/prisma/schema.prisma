@@ -243,3 +243,84 @@ model EvidenceDocument {
   @@index([sha256])
   @@map("evidence_documents")
 }
+
+// -------------------------------------------------------------
+// 10. Live Ethereum Sepolia Testnet Relayer & Merkle Batching
+// -------------------------------------------------------------
+model Commitment {
+  id              String      @id @default(uuid())
+  ownerId         String
+  organizationId  String?
+  evidenceDigest  String      // 32-byte hex hash (SHA-256 / Keccak-256)
+  idempotencyKey  String      @unique
+  status          String      @default("QUEUED") // 'QUEUED' | 'BATCHING' | 'PENDING' | 'CONFIRMED' | 'FAILED' | 'UNKNOWN'
+  failureReason   String?
+  batchId         String?
+  txHash          String?
+  explorerUrl     String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  batch           MerkleBatch? @relation(fields: [batchId], references: [id])
+  leaf            BatchLeaf?
+
+  @@index([ownerId])
+  @@index([status])
+  @@map("commitments")
+}
+
+model MerkleBatch {
+  id                 String               @id @default(uuid())
+  batchIdHash        String               @unique // 32-byte hex hash on-chain
+  merkleRoot         String               // 32-byte hex Merkle root
+  leafCount          Int
+  status             String               @default("BATCHING") // 'BATCHING' | 'SUBMITTED' | 'CONFIRMED' | 'FAILED' | 'UNKNOWN'
+  submissionAttempts Int                  @default(0)
+  txHash             String?              @unique
+  chainId            Int                  @default(11155111)
+  contractAddress    String?
+  blockNumber        Int?
+  gasUsed            Int?
+  confirmedAt        DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  commitments        Commitment[]
+  leaves             BatchLeaf[]
+  attempts           TransactionAttempt[]
+
+  @@map("merkle_batches")
+}
+
+model BatchLeaf {
+  id           String      @id @default(uuid())
+  batchId      String
+  commitmentId String      @unique
+  leafIndex    Int
+  leafDigest   String      // 32-byte hex leaf hash
+  proofJson    String      // Serialized JSON array of 32-byte sibling hashes
+  createdAt    DateTime    @default(now())
+
+  batch        MerkleBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  commitment   Commitment  @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@map("batch_leaves")
+}
+
+model TransactionAttempt {
+  id            String      @id @default(uuid())
+  batchId       String
+  nonce         Int
+  txHash        String?
+  status        String      // 'BROADCAST' | 'CONFIRMED' | 'REVERTED' | 'TIMEOUT'
+  errorCategory String?
+  createdAt     DateTime    @default(now())
+
+  batch         MerkleBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([nonce])
+  @@map("transaction_attempts")
+}
+
