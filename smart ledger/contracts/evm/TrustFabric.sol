@@ -39,6 +39,9 @@ contract TrustFabric {
     mapping(bytes32 => Campaign) public campaigns;
     bytes32[] public campaignIdList;
 
+    // --- ERC-20 Stablecoin Allowlist ---
+    mapping(address => bool) public allowedTokens;
+
     // --- Fiat / Gateway Anchor Records ---
     struct FiatAnchorRecord {
         bytes32 paymentCommitment;
@@ -67,6 +70,10 @@ contract TrustFabric {
     bytes32[] public batchList;
 
     // --- Events ---
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    event TokenAllowedUpdated(address indexed token, bool allowed);
+
     event DonationReceived(
         address indexed donor,
         bytes32 indexed campaignId,
@@ -75,6 +82,17 @@ contract TrustFabric {
         uint256 timestamp,
         uint256 blockNumber
     );
+
+    event TokenDonationReceived(
+        address indexed donor,
+        bytes32 indexed campaignId,
+        address indexed recipient,
+        address token,
+        uint256 amount,
+        uint256 timestamp,
+        uint256 blockNumber
+    );
+
 
     event CampaignRegistered(
         bytes32 indexed campaignId,
@@ -127,6 +145,9 @@ contract TrustFabric {
     error InactiveCampaign(bytes32 campaignId);
     error DuplicateCampaign(bytes32 campaignId);
     error RecipientTransferFailed(address recipient, uint256 amount);
+    error TokenNotAllowed(address token);
+    error TokenTransferFailed(address token, address from, address to, uint256 amount);
+
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert UnauthorizedCaller();
@@ -191,6 +212,82 @@ contract TrustFabric {
             revert RecipientTransferFailed(recipient, donationAmount);
         }
     }
+
+    /**
+     * @notice Accepts direct ERC-20 stablecoin donation (e.g. USDC, USDT) for an authorized campaign.
+     * Forwards tokens directly from donor to campaign recipient using low-level safeTransferFrom.
+     * @param campaignId Unique 32-byte identifier for the active NGO campaign.
+     * @param token Address of the allowlisted ERC-20 token contract.
+     * @param amount Amount of tokens (in token minor units, e.g. 6 decimals for USDC/USDT).
+     */
+    function donateToken(
+        bytes32 campaignId,
+        address token,
+        uint256 amount
+    ) external nonReentrant {
+        if (amount == 0) revert ZeroAmountNotAllowed();
+        if (!allowedTokens[token]) revert TokenNotAllowed(token);
+
+        Campaign storage campaign = campaigns[campaignId];
+        if (campaign.recipient == address(0)) revert UnknownCampaign(campaignId);
+        if (!campaign.isActive) revert InactiveCampaign(campaignId);
+
+        address recipient = campaign.recipient;
+        campaign.donationCount += 1;
+
+        emit TokenDonationReceived(
+            msg.sender,
+            campaignId,
+            recipient,
+            token,
+            amount,
+            block.timestamp,
+            block.number
+        );
+
+        _safeTransferFrom(token, msg.sender, recipient, amount);
+    }
+
+    /**
+     * @notice Safely transfers ERC-20 tokens supporting both standard and non-standard tokens (like USDT)
+     */
+    function _safeTransferFrom(
+        address token,
+        address from,
+        address to,
+        uint256 amount
+    ) internal {
+        // Selector for transferFrom(address,address,uint256) is 0x23b872dd
+        (bool success, bytes memory data) = token.call(
+            abi.encodeWithSelector(0x23b872dd, from, to, amount)
+        );
+        if (!success || (data.length != 0 && !abi.decode(data, (bool)))) {
+            revert TokenTransferFailed(token, from, to, amount);
+        }
+    }
+
+    /**
+     * @notice Allows contract owner to update the ERC-20 token allowlist
+     * @param token Address of the token contract
+     * @param allowed Whether the token is permitted for donations
+     */
+    function setTokenAllowed(address token, bool allowed) external onlyOwner {
+        if (token == address(0)) revert ZeroAddressNotAllowed();
+        allowedTokens[token] = allowed;
+        emit TokenAllowedUpdated(token, allowed);
+    }
+
+    /**
+     * @notice Transfers ownership of the contract to a new account (Owner only)
+     * @param newOwner Address of the new owner
+     */
+    function transferOwnership(address newOwner) external onlyOwner {
+        if (newOwner == address(0)) revert ZeroAddressNotAllowed();
+        address oldOwner = owner;
+        owner = newOwner;
+        emit OwnershipTransferred(oldOwner, newOwner);
+    }
+
 
     /**
      * @notice Registers an authorized campaign recipient (Owner only)

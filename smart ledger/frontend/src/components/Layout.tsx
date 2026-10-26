@@ -101,7 +101,7 @@ export const Layout: React.FC<LayoutProps> = ({
             className={`nav-item ${activeTab === 'donate' ? 'active' : ''}`}
             onClick={() => onTabChange('donate')}
           >
-            <span>Live Donation (Razorpay)</span>
+            <span>Verified Donation Portal</span>
           </button>
 
           <button

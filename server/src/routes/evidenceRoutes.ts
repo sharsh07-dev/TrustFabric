@@ -1,10 +1,12 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { EvidenceVaultService } from '../services/evidenceVaultService.js';
+import { IpfsStorageService } from '../services/ipfsStorageService.js';
 import { requireAuth, requireRoles } from '../middleware/authMiddleware.js';
 
 const router = Router();
 const vaultService = EvidenceVaultService.getInstance();
+const ipfsService = IpfsStorageService.getInstance();
 
 // Multer memory storage for direct streaming to Supabase Storage / Vault
 const upload = multer({
@@ -395,6 +397,88 @@ router.patch('/:id/extraction', requireAuth, (req: Request, res: Response) => {
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/evidence/:id/ipfs
+ * Returns IPFS CID, content addressing status, and public gateway link
+ */
+router.get('/:id/ipfs', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user;
+  if (user.role === 'DONOR') {
+    return res.status(403).json({ success: false, error: 'Forbidden: Donors cannot query evidence storage metadata.' });
+  }
+
+  const evidence = vaultService.getEvidence(req.params.id);
+  if (!evidence) {
+    return res.status(404).json({ success: false, error: `Evidence document not found: ${req.params.id}` });
+  }
+
+  const isGlobal = user.role === 'ADMIN' || user.role === 'AUDITOR';
+  if (!isGlobal && user.organizationId && user.organizationId !== evidence.organizationId) {
+    return res.status(403).json({ success: false, error: 'Forbidden: Cross-organization access denied.' });
+  }
+
+  const isPinned = evidence.ipfsCid ? ipfsService.isPinned(evidence.ipfsCid) : false;
+
+  res.json({
+    success: true,
+    evidenceId: evidence.id,
+    ipfsCid: evidence.ipfsCid || null,
+    storageProvider: evidence.storageProvider,
+    isPinned,
+    sha256: evidence.sha256,
+    gatewayUrl: evidence.ipfsCid ? ipfsService.getGatewayUrl(evidence.ipfsCid, evidence.originalFilename) : null,
+  });
+});
+
+/**
+ * POST /api/evidence/ipfs/upload-manifest
+ * Uploads a public audit package, campaign description, or Merkle batch manifest to IPFS
+ */
+router.post('/ipfs/upload-manifest', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (user.role === 'DONOR') {
+      return res.status(403).json({ success: false, error: 'Forbidden: Donors cannot publish audit manifests.' });
+    }
+
+    const { manifest, name } = req.body;
+    if (!manifest) {
+      return res.status(400).json({ success: false, error: 'Missing manifest data object in request body.' });
+    }
+
+    const result = await ipfsService.uploadJson(manifest, name || 'batch_manifest');
+
+    res.status(201).json({
+      success: true,
+      message: 'Manifest uploaded and pinned to decentralized IPFS storage successfully.',
+      ...result,
+    });
+  } catch (err: any) {
+    res.status(err.statusCode || 500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/evidence/ipfs/fetch/:cid
+ * Fetches and verifies public document content from IPFS by CID
+ */
+router.get('/ipfs/fetch/:cid', async (req: Request, res: Response) => {
+  try {
+    const { cid } = req.params;
+    if (!ipfsService.isValidCid(cid)) {
+      return res.status(400).json({ success: false, error: `Invalid IPFS CID format: ${cid}` });
+    }
+
+    const bytes = await ipfsService.fetchFile(cid);
+    res.setHeader('Content-Length', bytes.length);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('X-IPFS-CID', cid);
+    res.send(bytes);
+  } catch (err: any) {
+    res.status(404).json({ success: false, error: err.message });
   }
 });
 

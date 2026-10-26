@@ -139,7 +139,7 @@ export const SettingsHealthView: React.FC<SettingsHealthViewProps> = ({ state, o
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-muted)' }}>Evidence Storage:</span>
-              <span>Private Vault (Time-limited Signed URLs)</span>
+              <span>Decentralized IPFS (Pinned & Content-Addressed)</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-muted)' }}>Credential Safety:</span>

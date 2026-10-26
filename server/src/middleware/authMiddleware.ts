@@ -35,6 +35,12 @@ export function extractBearerToken(req: Request): string | null {
  * NEVER derives identity from unauthenticated request body.
  */
 export async function verifyUserToken(token: string): Promise<{ valid: boolean; user?: AuthUser; error?: string }> {
+  // 0. Check token revocation list
+  const { SiweService } = await import('../services/siweService.js');
+  if (SiweService.getInstance().isTokenRevoked(token)) {
+    return { valid: false, error: 'Session token has been explicitly revoked upon logout' };
+  }
+
   // 1. Fast in-memory verification for system tokens, tests, and personas
   const jwtResult = jwtService.verifyToken(token);
   if (jwtResult.valid && jwtResult.user) {

@@ -115,11 +115,73 @@ describe('TrustFabric.sol Smart Contract Unit Test Suite (Ethereum Sepolia)', ()
     const zeroAmountErr = contractInterface.getError('ZeroAmountNotAllowed');
     const transferErr = contractInterface.getError('RecipientTransferFailed');
     const reentrancyErr = contractInterface.getError('ReentrancyGuardReentrantCall');
+    const tokenNotAllowedErr = contractInterface.getError('TokenNotAllowed');
+    const tokenTransferErr = contractInterface.getError('TokenTransferFailed');
 
     expect(unknownErr).toBeDefined();
     expect(inactiveErr).toBeDefined();
     expect(zeroAmountErr).toBeDefined();
     expect(transferErr).toBeDefined();
     expect(reentrancyErr).toBeDefined();
+    expect(tokenNotAllowedErr).toBeDefined();
+    expect(tokenTransferErr).toBeDefined();
+  });
+
+  it('7. Exposes donateToken(bytes32,address,uint256) function and TokenDonationReceived event in ABI', () => {
+    const donateTokenFn = contractInterface.getFunction('donateToken(bytes32,address,uint256)');
+    expect(donateTokenFn).toBeDefined();
+    expect(donateTokenFn?.payable).toBe(false); // Non-payable ERC-20 transfer
+    expect(donateTokenFn?.inputs.length).toBe(3);
+
+    const tokenEvent = contractInterface.getEvent('TokenDonationReceived');
+    expect(tokenEvent).toBeDefined();
+    expect(tokenEvent?.inputs.length).toBe(7);
+  });
+
+  it('8. Exposes setTokenAllowed and transferOwnership administrative functions', () => {
+    const setTokenAllowedFn = contractInterface.getFunction('setTokenAllowed(address,bool)');
+    expect(setTokenAllowedFn).toBeDefined();
+
+    const transferOwnershipFn = contractInterface.getFunction('transferOwnership(address)');
+    expect(transferOwnershipFn).toBeDefined();
+
+    const ownershipEvent = contractInterface.getEvent('OwnershipTransferred');
+    expect(ownershipEvent).toBeDefined();
+  });
+
+  it('9. Decodes and verifies TokenDonationReceived event topics and arguments', () => {
+    const donor = '0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    const campaignId = ethers.id('CW-2026-CLEANWATER');
+    const recipient = '0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB';
+    const token = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'; // USDC
+    const amount = 50000000n; // 50 USDC (6 decimals)
+    const timestamp = 1770000050n;
+    const blockNumber = 7249010n;
+
+    const tokenEvent = contractInterface.getEvent('TokenDonationReceived')!;
+    const encodedLog = contractInterface.encodeEventLog(tokenEvent, [
+      donor,
+      campaignId,
+      recipient,
+      token,
+      amount,
+      timestamp,
+      blockNumber,
+    ]);
+
+    expect(encodedLog.topics.length).toBe(4);
+
+    const parsed = contractInterface.parseLog({
+      topics: encodedLog.topics,
+      data: encodedLog.data,
+    });
+
+    expect(parsed?.name).toBe('TokenDonationReceived');
+    expect(parsed?.args.donor.toLowerCase()).toBe(donor.toLowerCase());
+    expect(parsed?.args.campaignId).toBe(campaignId);
+    expect(parsed?.args.recipient.toLowerCase()).toBe(recipient.toLowerCase());
+    expect(parsed?.args.token.toLowerCase()).toBe(token.toLowerCase());
+    expect(parsed?.args.amount).toBe(amount);
   });
 });
+

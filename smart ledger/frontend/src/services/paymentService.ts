@@ -1,4 +1,7 @@
 export interface PublicPaymentConfig {
+  isRazorpayConfigured?: boolean;
+  primaryPaymentRail?: string;
+  supportedRails?: string[];
   razorpayKeyId: string;
   razorpayMode: 'test' | 'live';
   isTestMode: boolean;
@@ -11,6 +14,24 @@ export interface PublicPaymentConfig {
   maxDonationPaise: number;
   explorerBaseUrl: string;
 }
+
+export interface DirectBankDonationResponse {
+  success: boolean;
+  donation: {
+    id: string;
+    donationCode: string;
+    grantId: string;
+    amountPaise: number;
+    currency: string;
+    state: string;
+    paymentRail: string;
+    bankReferenceUtr: string;
+    createdAt: string;
+  };
+  anchor?: any;
+  notice: string;
+}
+
 
 export interface PaymentGrant {
   id: string;
@@ -255,6 +276,40 @@ export class PaymentService {
     return resp.json();
   }
 
+  public async submitDirectBankDonation(params: {
+    grantId: string;
+    amountRupees: number;
+    donorName?: string;
+    donorEmail?: string;
+    bankReferenceUtr: string;
+    idempotencyKey?: string;
+  }): Promise<DirectBankDonationResponse> {
+    const resp = await apiFetch('/api/donations/direct-bank', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: 'Direct bank donation submission failed' }));
+      throw new Error(err.error || `HTTP ${resp.status}`);
+    }
+
+    return resp.json();
+  }
+
+  public async loadRazorpayScript(): Promise<boolean> {
+    if (typeof (window as any).Razorpay !== 'undefined') return true;
+    return new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  }
+
   public async retryAnchor(donationId: string): Promise<any> {
     const resp = await apiFetch(`/api/donations/${donationId}/retry-anchor`, {
       method: 'POST',
@@ -266,3 +321,4 @@ export class PaymentService {
     return resp.json();
   }
 }
+

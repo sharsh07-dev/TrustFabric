@@ -33,11 +33,22 @@ export class TesseractOcrEngine implements IOcrEngine {
       }
     }
 
-    // If text was not extractable from PDF or file is an image, run Tesseract OCR
-    if (!rawText || rawText.trim().length < 15) {
+    // Only pass actual image formats to Tesseract (Tesseract cannot read raw PDF binaries)
+    const isImage = mimeType.startsWith('image/') || 
+      (buffer.length >= 4 && (
+        (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) || // PNG
+        (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) || // JPEG
+        (buffer.slice(0, 4).toString() === 'RIFF') // WEBP
+      ));
+
+    if ((!rawText || rawText.trim().length < 15) && isImage) {
       try {
         const { createWorker } = await import('tesseract.js');
-        const worker = await createWorker('eng');
+        const worker = await createWorker('eng', 1, {
+          errorHandler: (err: any) => {
+            console.warn(`[OCR Engine] Tesseract worker caught: ${err?.message || err}`);
+          },
+        });
         const ret = await worker.recognize(buffer);
         rawText = ret.data.text || '';
         confidence = ret.data.confidence ? ret.data.confidence / 100 : 0.85;

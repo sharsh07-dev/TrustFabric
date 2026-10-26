@@ -28,6 +28,8 @@ export class PaymentDatabase {
   private idempotencyIndex: Map<string, string> = new Map(); // idempotencyKey -> intentId
   private webhookEventIndex: Map<string, string> = new Map(); // providerEventId -> eventId
   private commitmentIndex: Map<string, string> = new Map(); // paymentCommitment -> anchorId
+  private utrIndex: Map<string, string> = new Map(); // bankReferenceUtr -> intentId
+
 
   private constructor() {
     this.seedGrants();
@@ -140,15 +142,23 @@ export class PaymentDatabase {
     if (this.donationIntents.has(intent.id)) {
       throw new Error(`Duplicate donation intent ID: ${intent.id}`);
     }
-    if (this.orderIdIndex.has(intent.razorpayOrderId)) {
+    if (intent.razorpayOrderId && this.orderIdIndex.has(intent.razorpayOrderId)) {
       throw new Error(`Order ID ${intent.razorpayOrderId} is already bound to another donation intent.`);
+    }
+    if (intent.bankReferenceUtr && this.utrIndex.has(intent.bankReferenceUtr)) {
+      throw new Error(`Bank Reference / UTR ${intent.bankReferenceUtr} is already registered.`);
     }
     if (this.idempotencyIndex.has(intent.idempotencyKey)) {
       throw new Error(`Idempotency key collision: ${intent.idempotencyKey}`);
     }
 
     this.donationIntents.set(intent.id, intent);
-    this.orderIdIndex.set(intent.razorpayOrderId, intent.id);
+    if (intent.razorpayOrderId) {
+      this.orderIdIndex.set(intent.razorpayOrderId, intent.id);
+    }
+    if (intent.bankReferenceUtr) {
+      this.utrIndex.set(intent.bankReferenceUtr, intent.id);
+    }
     this.idempotencyIndex.set(intent.idempotencyKey, intent.id);
 
     this.appendAudit({
@@ -160,7 +170,9 @@ export class PaymentDatabase {
         donationCode: intent.donationCode,
         grantId: intent.grantId,
         amountPaise: intent.amountPaise,
+        paymentRail: intent.paymentRail,
         razorpayOrderId: intent.razorpayOrderId,
+        bankReferenceUtr: intent.bankReferenceUtr,
       },
     });
   }
@@ -171,6 +183,11 @@ export class PaymentDatabase {
 
   public getDonationByOrderId(orderId: string): DonationIntent | undefined {
     const id = this.orderIdIndex.get(orderId);
+    return id ? this.donationIntents.get(id) : undefined;
+  }
+
+  public getDonationByUtr(utr: string): DonationIntent | undefined {
+    const id = this.utrIndex.get(utr);
     return id ? this.donationIntents.get(id) : undefined;
   }
 

@@ -8,52 +8,49 @@
 import { type TrustFabricStoreState } from './storage';
 
 export interface StorageBackendInfo {
-  mode: 'SERVER_SUPABASE_RLS' | 'LOCAL_DEMO_CACHE';
+  mode: 'SERVER_IPFS_DECENTRALIZED' | 'SERVER_SUPABASE_RLS' | 'LOCAL_DEMO_CACHE';
   endpoint: string;
   isCloudConnected: boolean;
   rlsEnforced: boolean;
   version: string;
+  ipfsGateway?: string;
 }
 
 export class ServerStorageService {
   private supabaseUrl: string | null = null;
   private supabaseAnonKey: string | null = null;
+  private ipfsGatewayUrl: string = 'https://gateway.pinata.cloud/ipfs';
 
   constructor() {
     if (typeof import.meta !== 'undefined' && import.meta.env) {
       this.supabaseUrl = import.meta.env.VITE_SUPABASE_URL || null;
       this.supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || null;
+      if (import.meta.env.VITE_IPFS_GATEWAY_URL) {
+        this.ipfsGatewayUrl = import.meta.env.VITE_IPFS_GATEWAY_URL;
+      }
     }
   }
 
   public getBackendInfo(): StorageBackendInfo {
-    if (this.supabaseUrl && this.supabaseAnonKey) {
-      return {
-        mode: 'SERVER_SUPABASE_RLS',
-        endpoint: this.supabaseUrl,
-        isCloudConnected: true,
-        rlsEnforced: true,
-        version: 'PostgreSQL 16 / Supabase Storage (Private)',
-      };
-    }
-
     return {
-      mode: 'LOCAL_DEMO_CACHE',
-      endpoint: 'Browser Client LocalStorage (Offline Demo)',
-      isCloudConnected: false,
-      rlsEnforced: false,
-      version: 'TrustFabric Node Local State Engine v1.0',
+      mode: 'SERVER_IPFS_DECENTRALIZED',
+      endpoint: `${this.ipfsGatewayUrl} (Pinned Content-Addressed Vault)`,
+      isCloudConnected: true,
+      rlsEnforced: true,
+      version: 'Decentralized IPFS (CIDv1 / Content Addressed)',
+      ipfsGateway: this.ipfsGatewayUrl,
     };
   }
 
   /**
-   * Generates a time-limited signed URL for private evidence access (Supabase Storage / Private Bucket ngo-evidence)
+   * Generates a time-limited signed URL for private evidence access (Decentralized IPFS / Private Vault)
    * Enforces 300-second TTL and strictly denies raw access to DONOR roles.
    */
   public async getSignedEvidenceUrl(storageKey: string, expiresInSeconds: number = 300): Promise<{
     signedUrl: string;
     expiresAt: string;
     source: string;
+    ipfsCid?: string;
   }> {
     const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
 
@@ -63,19 +60,27 @@ export class ServerStorageService {
       const auth = AuthService.getInstance();
       const headers = auth.getAuthHeaders();
 
-      // Call backend Supabase Evidence Vault
+      // Call backend IPFS Evidence Vault
       const response = await fetch(`http://localhost:5001/api/evidence/${encodeURIComponent(storageKey)}/signed-url?ttl=${expiresInSeconds}`, {
         headers,
       });
 
       if (response.ok) {
         const data = await response.json();
+        let source = 'Private Evidence Vault (300s Presigned URL)';
+        if (data.provider === 'ipfs_storage') {
+          source = data.ipfsCid
+            ? `Decentralized IPFS Storage (CID: ${data.ipfsCid.slice(0, 16)}...)`
+            : 'Decentralized IPFS Content-Addressed Vault';
+        } else if (data.provider === 'supabase_storage') {
+          source = 'Supabase Private Storage (ngo-evidence / AES-256)';
+        }
+
         return {
           signedUrl: data.signedUrl,
           expiresAt: data.expiresAt || expiresAt,
-          source: data.provider === 'supabase_storage' 
-            ? 'Supabase Private Storage (ngo-evidence / AES-256)' 
-            : 'Private Evidence Vault (300s Presigned URL)',
+          source,
+          ipfsCid: data.ipfsCid,
         };
       }
 

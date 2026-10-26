@@ -22,16 +22,24 @@ export class AnchorService {
     const commitmentSalt = crypto.randomBytes(32).toString('hex');
     const grantRefHash = '0x' + crypto.createHash('sha256').update(intent.grantId).digest('hex');
 
+    const paymentIdentifier =
+      intent.bankReferenceUtr ||
+      intent.txHash ||
+      intent.razorpayPaymentId ||
+      intent.razorpayOrderId ||
+      intent.id;
+
     const canonicalPreimage = [
-      'TRUSTFABRIC_FIAT_V1',
+      'TRUSTFABRIC_PAYMENT_V1',
       intent.grantId,
-      intent.razorpayPaymentId || intent.razorpayOrderId,
-      intent.amountPaise.toString(),
+      paymentIdentifier,
+      intent.amountPaise ? intent.amountPaise.toString() : '0',
       intent.currency,
       commitmentSalt,
     ].join(':');
 
     const paymentCommitment = '0x' + crypto.createHash('sha256').update(canonicalPreimage).digest('hex');
+
 
     return {
       paymentCommitment,

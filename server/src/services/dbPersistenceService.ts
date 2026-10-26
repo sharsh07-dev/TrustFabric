@@ -119,7 +119,12 @@ export class DbPersistenceService {
     // Check if user has provided real credentials or still has template placeholder
     if (!dbUrl || dbUrl.includes('[YOUR-PASSWORD]')) {
       this.isConnectedToPostgres = false;
-      this.connectionError = 'Database password not yet supplied in DATABASE_URL template.';
+      this.connectionError = 'Database credentials not configured in DATABASE_URL.';
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(
+          'FATAL_DATABASE_ERROR: Silent in-memory fallback is strictly forbidden in production mode. A persistent PostgreSQL connection is required.'
+        );
+      }
       return {
         connected: false,
         provider: 'in_memory_fallback',

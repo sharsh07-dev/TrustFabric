@@ -5,10 +5,13 @@ import { requireAuth, type AuthenticatedRequest } from '../middleware/authMiddle
 import { DbPersistenceService } from '../services/dbPersistenceService.js';
 import type { AuthUser, UserRole } from '../types.js';
 
+import { SiweService } from '../services/siweService.js';
+
 export const authRouter = Router();
 const jwtService = JwtService.getInstance();
 const clerkService = ClerkService.getInstance();
 const dbPersistence = DbPersistenceService.getInstance();
+const siweService = SiweService.getInstance();
 
 export const STANDARD_PERSONAS: Record<string, AuthUser> = {
   AARAV_DONOR: {
@@ -137,6 +140,81 @@ authRouter.get('/auth/me', requireAuth, (req: AuthenticatedRequest, res: Respons
 });
 
 /**
+ * GET /api/auth/siwe/nonce
+ * Generates an unpredictable cryptographic challenge nonce for EIP-4361 wallet authentication
+ */
+authRouter.get('/auth/siwe/nonce', (req: Request, res: Response) => {
+  const domain = (req.query.domain as string) || req.headers.host;
+  const uri = (req.query.uri as string) || `${req.protocol}://${req.get('host')}`;
+  const challenge = siweService.generateNonce(domain, uri);
+  res.json({
+    success: true,
+    ...challenge,
+  });
+});
+
+/**
+ * POST /api/auth/siwe/verify
+ * Cryptographically verifies EIP-4361 message signature, enforces nonce single-use,
+ * and issues standard JWT session token bound to the verified Ethereum address.
+ */
+authRouter.post('/auth/siwe/verify', async (req: Request, res: Response): Promise<void> => {
+  const { message, signature, expectedDomain } = req.body;
+
+  if (!message || !signature) {
+    res.status(400).json({
+      error: 'MISSING_PARAMETERS: Both "message" and "signature" are required.',
+    });
+    return;
+  }
+
+  const result = await siweService.verifySignature({
+    message,
+    signature,
+    expectedDomain,
+  });
+
+  if (!result.valid || !result.user) {
+    res.status(401).json({
+      error: result.error || 'Authentication signature verification failed.',
+      code: 'SIWE_VERIFICATION_FAILED',
+    });
+    return;
+  }
+
+  res.json({
+    success: true,
+    token: result.token,
+    tokenType: 'Bearer',
+    expiresIn: 86400,
+    user: result.user,
+    permissions: {
+      canReviewApplications: ['ADMIN', 'AUDITOR'].includes(result.user.role),
+      canAuthorizeEscrow: ['ADMIN', 'AUDITOR', 'FINANCE_OFFICER'].includes(result.user.role),
+      canDonate: true,
+      canSubmitClaims: ['ADMIN', 'FIELD_WORKER'].includes(result.user.role),
+    },
+    message: `Authenticated with wallet ${result.address} (${result.user.role})`,
+  });
+});
+
+/**
+ * POST /api/auth/siwe/logout
+ * Explicitly revokes active session token to prevent reuse
+ */
+authRouter.post('/auth/siwe/logout', (req: Request, res: Response): void => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7).trim();
+    siweService.revokeToken(token);
+  }
+  res.json({
+    success: true,
+    message: 'Session successfully revoked',
+  });
+});
+
+/**
  * POST /api/webhooks/clerk
  * Handles Clerk lifecycle webhooks (user.created, user.updated, user.deleted)
  * Verifies Svix signature for tamper resistance and processes events idempotently.
@@ -157,3 +235,4 @@ authRouter.post('/webhooks/clerk', async (req: Request, res: Response): Promise<
     res.status(400).json({ error: `Webhook verification failed: ${err.message}` });
   }
 });
+

@@ -12,6 +12,7 @@ export type DonationState =
   | 'PARTIALLY_REFUNDED';
 
 export type EnvironmentMode = 'TEST' | 'LIVE';
+export type PaymentRail = 'CRYPTO_EVM_ETH' | 'DIRECT_BANK_AUDIT' | 'RAZORPAY_LEGACY';
 
 export interface DonationIntent {
   id: string;
@@ -19,9 +20,14 @@ export interface DonationIntent {
   grantId: string;
   donorId?: string;
   amountPaise: number; // integer paise
-  currency: 'INR';
-  razorpayOrderId: string;
+  currency: 'INR' | 'ETH' | 'USDC';
+  paymentRail?: PaymentRail;
+  razorpayOrderId?: string;
   razorpayPaymentId?: string;
+  txHash?: string;
+  bankReferenceUtr?: string;
+  nullifierHash?: string;
+  donorAddress?: string;
   state: DonationState;
   environment: EnvironmentMode;
   idempotencyKey: string;
@@ -29,6 +35,7 @@ export interface DonationIntent {
   createdAt: string;
   updatedAt: string;
 }
+
 
 export interface RazorpayWebhookEvent {
   id: string;
@@ -190,6 +197,8 @@ export type UserRole = 'ADMIN' | 'FINANCE_OFFICER' | 'AUDITOR' | 'DONOR' | 'FIEL
 export interface AuthUser {
   id: string;
   clerkUserId?: string;
+  walletAddress?: string;
+  authMethod?: 'CLERK' | 'JWT_PERSONA' | 'SIWE_WALLET';
   name: string;
   email: string;
   role: UserRole;

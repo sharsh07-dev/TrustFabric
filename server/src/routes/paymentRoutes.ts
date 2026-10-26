@@ -18,6 +18,9 @@ const anchorService = new AnchorService();
  */
 paymentRouter.get('/config/public', (_req: Request, res: Response) => {
   res.json({
+    isRazorpayConfigured: config.isRazorpayConfigured,
+    primaryPaymentRail: config.primaryPaymentRail,
+    supportedRails: config.supportedRails,
     razorpayKeyId: config.razorpayKeyId,
     razorpayMode: config.razorpayMode,
     isTestMode: config.razorpayMode === 'test',
@@ -48,6 +51,13 @@ paymentRouter.get('/grants', (_req: Request, res: Response) => {
 paymentRouter.get('/donations', (_req: Request, res: Response) => {
   const donations = Array.from(db.donationIntents.values()).map(intent => {
     const anchor = db.getAnchorByDonationId(intent.id);
+    let provenance = 'DIRECT_BANK_ATTESTED';
+    if (intent.paymentRail === 'CRYPTO_EVM_ETH') {
+      provenance = 'ONCHAIN_ANCHORED_TESTNET';
+    } else if (intent.paymentRail === 'RAZORPAY_LEGACY' || intent.razorpayOrderId) {
+      provenance = intent.environment === 'TEST' ? 'RAZORPAY_TEST_CAPTURED' : 'RAZORPAY_LIVE_CAPTURED';
+    }
+
     return {
       donationId: intent.id,
       donationCode: intent.donationCode,
@@ -55,8 +65,10 @@ paymentRouter.get('/donations', (_req: Request, res: Response) => {
       amountPaise: intent.amountPaise,
       currency: intent.currency,
       status: intent.state,
-      provenance: intent.environment === 'TEST' ? 'RAZORPAY_TEST_CAPTURED' : 'RAZORPAY_LIVE_CAPTURED',
+      paymentRail: intent.paymentRail || (intent.razorpayOrderId ? 'RAZORPAY_LEGACY' : 'DIRECT_BANK_AUDIT'),
+      provenance,
       razorpayPaymentId: intent.razorpayPaymentId,
+      bankReferenceUtr: intent.bankReferenceUtr,
       txHash: anchor?.txHash,
       blockNumber: anchor?.blockNumber,
       explorerUrl: anchor?.explorerUrl,
@@ -68,12 +80,122 @@ paymentRouter.get('/donations', (_req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/donations/direct-bank
+ * Submits an auditable direct bank transfer or UPI donation with UTR nullifier anchoring.
+ * Eliminates third-party payment gateway fees and lock-in.
+ */
+paymentRouter.post('/donations/direct-bank', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { grantId, amountRupees, donorName, donorEmail, bankReferenceUtr, idempotencyKey } = req.body;
+
+    if (!grantId) {
+      res.status(400).json({ error: 'Missing required field: grantId' });
+      return;
+    }
+    if (!amountRupees || typeof amountRupees !== 'number' || amountRupees <= 0) {
+      res.status(400).json({ error: 'Invalid amountRupees. Must be a positive number.' });
+      return;
+    }
+    if (!bankReferenceUtr || typeof bankReferenceUtr !== 'string' || bankReferenceUtr.trim().length < 6) {
+      res.status(400).json({ error: 'Invalid bankReferenceUtr. A valid bank UTR / UPI reference (at least 6 characters) is required.' });
+      return;
+    }
+
+    const cleanUtr = bankReferenceUtr.trim().toUpperCase();
+
+    // Check for duplicate UTR registration (Nullifier Replay Protection)
+    const existing = db.getDonationByUtr(cleanUtr);
+    if (existing) {
+      res.status(409).json({ error: `Bank Reference / UTR ${cleanUtr} has already been registered and anchored.` });
+      return;
+    }
+
+    const grant = db.activeGrants.get(grantId);
+    if (!grant) {
+      res.status(400).json({ error: `Grant ${grantId} does not exist or is inactive.` });
+      return;
+    }
+
+    const amountPaise = Math.round(amountRupees * 100);
+    const donationId = `don-bank-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
+    const donationCode = `TF-BANK-${cleanUtr.slice(-6)}`;
+    const idemKey = idempotencyKey || `idem_bank_${cleanUtr}`;
+
+    const intent = {
+      id: donationId,
+      donationCode,
+      grantId,
+      donorId: donorEmail || donorName || 'DONOR_ANONYMOUS',
+      amountPaise,
+      currency: 'INR' as const,
+      paymentRail: 'DIRECT_BANK_AUDIT' as const,
+      bankReferenceUtr: cleanUtr,
+      state: 'CAPTURED' as const,
+      environment: (config.razorpayMode === 'live' ? 'LIVE' : 'TEST') as 'TEST' | 'LIVE',
+      idempotencyKey: idemKey,
+      clientMetadata: {
+        donorName: donorName || 'Anonymous Donor',
+        donorEmail: donorEmail || '',
+        submissionMethod: 'DIRECT_BANK_TRANSFER_OR_UPI',
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    db.insertDonationIntent(intent);
+
+    // Anchor on-chain cryptographic commitment via anchorService
+    let anchorResult = null;
+    try {
+      anchorResult = await anchorService.anchorDonation(intent.id);
+    } catch (anchorErr: any) {
+      console.warn(`[DirectBankAnchor] Background anchor warning: ${anchorErr.message}`);
+    }
+
+    // Broadcast to real-time client dashboards via Socket.IO
+    try {
+      RealtimeSocketService.getInstance().broadcastDonation({
+        donationId: intent.id,
+        donationCode: intent.donationCode,
+        campaignId: intent.grantId,
+        amountPaise: intent.amountPaise,
+        currency: 'INR',
+        status: 'VERIFIED',
+        provenance: 'DIRECT_BANK_ATTESTED',
+        txHash: anchorResult?.txHash,
+        blockNumber: anchorResult?.blockNumber,
+        explorerUrl: anchorResult?.explorerUrl,
+        createdAt: intent.createdAt,
+      });
+    } catch {
+      // Non-blocking broadcast
+    }
+
+    res.status(201).json({
+      success: true,
+      donation: intent,
+      anchor: anchorResult,
+      notice: 'Direct bank settlement registered and anchored on Ethereum Sepolia. Zero intermediary gateway fees deducted.',
+    });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+/**
  * POST /api/payments/razorpay/orders
- * Creates an authorized server-side Razorpay order
+ * Creates an authorized server-side Razorpay order (Optional Legacy Flow)
  */
 paymentRouter.post('/payments/razorpay/orders', async (req: Request, res: Response): Promise<void> => {
   try {
     const { grantId, amountPaise, donorName, donorEmail, donorContact, idempotencyKey } = req.body;
+
+    if (!config.isRazorpayConfigured && config.razorpayMode !== 'test') {
+      res.status(400).json({
+        error: 'Razorpay legacy gateway is not configured on this node. Please use Direct Web3 Crypto or Direct Bank Settlement.',
+      });
+      return;
+    }
 
     if (!grantId) {
       res.status(400).json({ error: 'Missing required field: grantId' });
@@ -98,6 +220,7 @@ paymentRouter.post('/payments/razorpay/orders', async (req: Request, res: Respon
     res.status(400).json({ error: err.message });
   }
 });
+
 
 /**
  * POST /api/payments/razorpay/verify

@@ -33,6 +33,7 @@
     "@types/multer": "^2.3.0",
     "@types/node": "^24.19.2",
     "@types/pdf-parse": "^1.1.5",
+    "ganache": "^7.9.2",
     "prisma": "^5.22.0",
     "solc": "^0.8.20",
     "tsx": "^4.19.3",

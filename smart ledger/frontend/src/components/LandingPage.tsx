@@ -110,9 +110,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <button
                 className="tf-btn-amber"
                 onClick={() => onNavigate('donate')}
-                title="Open Live Razorpay Test Mode Donation View"
+                title="Donate on Ethereum Sepolia with Self-Custody Wallet"
               >
-                TEST DONATE NOW
+                DONATE ON SEPOLIA
               </button>
 
               <button
@@ -139,7 +139,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 Fast, verifiable & easy fund flows in real time
               </h1>
               <p className="tf-hero-subtext">
-                Eliminate the black hole ledger. Connect Razorpay test donations, Firebase Realtime Database, and Sepolia on-chain commitments in one unified platform.
+                Eliminate the black hole ledger. Direct Web3 wallet donations, real-time on-chain tracking, and immutable Sepolia commitments with zero intermediary fees.
               </p>
               <div className="tf-hero-cta-group">
                 <button
@@ -147,7 +147,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   onClick={() => onNavigate('donate')}
                   style={{ padding: '14px 28px', fontSize: '14px' }}
                 >
-                  APPLY FOR DONATION NOW
+                  DONATE ON SEPOLIA NOW
                 </button>
                 <button
                   className="tf-btn-secondary"
@@ -164,19 +164,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div className="tf-checklist-card">
                 <div className="tf-check-item">
                   <span className="tf-check-icon">✓</span>
-                  <span>Get real-time test donation tracking</span>
+                  <span>Real-Time On-Chain Transaction Tracker</span>
                 </div>
                 <div className="tf-check-item">
                   <span className="tf-check-icon">✓</span>
-                  <span>15-Second Razorpay Sandbox Checkout</span>
+                  <span>Self-Custody Wallet Direct Donation</span>
                 </div>
                 <div className="tf-check-item">
                   <span className="tf-check-icon">✓</span>
-                  <span>Firebase RTDB Cloud Sync</span>
+                  <span>Zero Intermediary Fees (0% Skimming)</span>
                 </div>
                 <div className="tf-check-item">
                   <span className="tf-check-icon">✓</span>
-                  <span>Sepolia EVM Block Anchor</span>
+                  <span>Sepolia EVM Block Inclusion & Log Verification</span>
                 </div>
               </div>
 
@@ -184,7 +184,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <div className="tf-numbered-card">
                   <div className="tf-num-title">1. Authoritative Provenance</div>
                   <div className="tf-num-desc">
-                    Every event is labelled RAZORPAY_TEST_CAPTURED or ONCHAIN_ANCHORED_TESTNET with complete cryptographic integrity.
+                    Every donation is verified directly against Ethereum Sepolia logs with complete cryptographic integrity.
                   </div>
                 </div>
 
@@ -287,22 +287,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
               {/* Product 1: MicroRelief (ref1.png) */}
               <div className="tf-product-col">
-                <div className="tf-help-icon" title="Instant community grant with Razorpay test checkout and Sepolia anchoring">?</div>
+                <div className="tf-help-icon" title="Instant community grant with direct wallet settlement and on-chain event tracking">?</div>
                 <div>
                   <div className="tf-prod-tag">PRODUCT</div>
                   <div className="tf-prod-title">MicroRelief</div>
                   <div className="tf-prod-price-box">
                     <span className="tf-prod-price-upto">Up To</span>
-                    <span className="tf-prod-price-amt">₹1,500</span>
+                    <span className="tf-prod-price-amt">0.5 ETH</span>
                   </div>
                   <ul className="tf-prod-bullets">
                     <li className="tf-prod-bullet">
                       <span className="tick">✓</span>
-                      <span>Instant Razorpay Test Checkout</span>
+                      <span>Direct Web3 Wallet Settlement</span>
                     </li>
                     <li className="tf-prod-bullet">
                       <span className="tick">✓</span>
-                      <span>Sub-second Firebase Broadcast</span>
+                      <span>Zero Intermediary Fees (0% Cut)</span>
                     </li>
                     <li className="tf-prod-bullet">
                       <span className="tick">✓</span>
@@ -330,7 +330,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <div className="tf-prod-title">PlusEscrow</div>
                   <div className="tf-prod-price-box">
                     <span className="tf-prod-price-upto">Up To</span>
-                    <span className="tf-prod-price-amt">₹50,000+</span>
+                    <span className="tf-prod-price-amt">5.0+ ETH</span>
                   </div>
                   <ul className="tf-prod-bullets">
                     <li className="tf-prod-bullet">
@@ -382,9 +382,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
             <div className="tf-step-card">
               <div className="tf-step-badge">2</div>
-              <h3 className="tf-step-title">Submit Verification & Checkout</h3>
+              <h3 className="tf-step-title">Connect Wallet & Submit Donation</h3>
               <p className="tf-step-desc">
-                Process donations via Razorpay Standard Test Mode. Backend verifies HMAC-SHA256 signatures and writes authoritative records to Firebase RTDB.
+                Sign and submit directly through your Web3 wallet. Smart contract forwards funds atomically to the verified NGO recipient.
               </p>
             </div>
 
@@ -434,7 +434,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
               <div className="tf-check-item">
                 <span className="tf-check-icon">✓</span>
-                <span>Verified Bank & Razorpay Merchant</span>
+                <span>Verified NGO Recipient Smart Contract</span>
               </div>
               <div className="tf-check-item">
                 <span className="tf-check-icon">✓</span>
@@ -450,7 +450,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           {/* Tabbed Term Strip (ref1.png Bottom) */}
           <div className="tf-term-strip">
             <div className="tf-term-example">
-              <strong>EXAMPLE:</strong> A clean water grant of ₹50,000 for 3 months disburses ₹16,666 across 3 audited tranches with 100% cryptographic proof.
+              <strong>EXAMPLE:</strong> A clean water grant of 1.5 ETH for 3 months disburses 0.5 ETH across 3 audited tranches with 100% cryptographic proof.
             </div>
             <div className="tf-term-pills">
               <button
@@ -487,13 +487,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 Get your fund tracking and verified impact immediately
               </h2>
               <p className="tf-promo-subtext">
-                Every test donation generates genuine Razorpay sandbox identifiers, synchronizes across cloud databases in under 1 second, and produces an immutable on-chain commitment on Sepolia.
+                Every donation executes directly on Ethereum Sepolia, emits verifiable DonationReceived events, and provides real-time transaction tracking without centralized payment intermediaries.
               </p>
               <button
                 className="tf-btn-white"
                 onClick={() => onNavigate('donate')}
               >
-                LEARN MORE NOW
+                DONATE ON SEPOLIA NOW
               </button>
             </div>
 
@@ -503,24 +503,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <span style={{ color: '#16a34a' }}>VERIFIED</span>
               </div>
               <div className="tf-promo-receipt-row">
-                <span>Payment Provider</span>
-                <strong>Razorpay Test Mode</strong>
+                <span>Settlement Rail</span>
+                <strong>Ethereum Sepolia EVM</strong>
               </div>
               <div className="tf-promo-receipt-row">
-                <span>Order Reference</span>
-                <code>order_RZP9482103</code>
-              </div>
-              <div className="tf-promo-receipt-row">
-                <span>Cloud Persistence</span>
-                <span>Firebase RTDB</span>
-              </div>
-              <div className="tf-promo-receipt-row">
-                <span>Blockchain Commitment</span>
+                <span>Contract Reference</span>
                 <code>Sepolia 0x71C2...9eF4</code>
+              </div>
+              <div className="tf-promo-receipt-row">
+                <span>Transaction Tracker</span>
+                <span>Real-Time Etherscan Logs</span>
+              </div>
+              <div className="tf-promo-receipt-row">
+                <span>Campaign Event</span>
+                <code>DonationReceived</code>
               </div>
               <div className="tf-promo-receipt-row total">
                 <span>Donation Amount</span>
-                <span>₹500.00 (50,000 paise)</span>
+                <span>0.01 ETH (~$35.00)</span>
               </div>
             </div>
           </div>
@@ -538,15 +538,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
           <div className="tf-disclosures-grid">
             <div className="tf-disclosure-item">
-              <span className="tf-disc-badge test">RAZORPAY_TEST_CAPTURED</span>
+              <span className="tf-disc-badge test">ONCHAIN_EVM_SETTLEMENT</span>
               <p className="tf-disc-text">
-                Real interaction with Razorpay sandbox. Real test order & payment IDs generated. Does not transfer real-world fiat currency.
+                Real interaction with Ethereum Sepolia smart contract. Donor funds route directly to the campaign recipient via EVM consensus.
               </p>
             </div>
             <div className="tf-disclosure-item">
-              <span className="tf-disc-badge rtdb">FIREBASE_PERSISTED</span>
+              <span className="tf-disc-badge rtdb">EVENT_INDEXED_SYNC</span>
               <p className="tf-disc-text">
-                Real cloud persistence and WebSocket sync via Google Firebase Realtime Database. Zero unauthenticated client writes.
+                Authoritative event logs indexed directly from blockchain blocks. Disposable read cache with zero custodial server escrow.
               </p>
             </div>
             <div className="tf-disclosure-item">
@@ -584,7 +584,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <h4>Platform</h4>
               <ul className="tf-footer-links">
                 <li><button className="tf-footer-link" onClick={() => onNavigate('overview')}>Console Overview</button></li>
-                <li><button className="tf-footer-link" onClick={() => onNavigate('donate')}>Live Razorpay Donation</button></li>
+                <li><button className="tf-footer-link" onClick={() => onNavigate('donate')}>Verified Donation Portal</button></li>
                 <li><button className="tf-footer-link" onClick={() => onNavigate('grants')}>Grants & Policies</button></li>
                 <li><button className="tf-footer-link" onClick={() => onNavigate('fundflows')}>Fund Flow Explorer</button></li>
               </ul>
@@ -613,7 +613,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
           <div className="tf-footer-bottom">
             <div>© 2026 TrustFabric Protocol. All rights reserved. Open-source verifiable grant accounting.</div>
-            <div>Sepolia Chain ID: 11155111 | Razorpay Sandbox Enabled</div>
+            <div>Sepolia Chain ID: 11155111 | Decentralized Web3 & Direct Bank Rails Enabled</div>
           </div>
         </div>
       </footer>
